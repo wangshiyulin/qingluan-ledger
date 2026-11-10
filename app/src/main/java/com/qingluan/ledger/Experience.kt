@@ -20,7 +20,6 @@ data class Experience(
     val rememberStats: Boolean = true,
     val statDate: String = "",
     val backupDays: String = "off",
-    val commonNotes: String = "",
 ) {
     fun json(): JSONObject =
         JSONObject().apply {
@@ -40,7 +39,6 @@ data class Experience(
             put("rememberStats", rememberStats)
             put("statDate", statDate)
             put("backupDays", backupDays)
-            put("commonNotes", commonNotes)
         }
 
     companion object {
@@ -49,8 +47,6 @@ data class Experience(
                 j.optString(key, default).also { require(it in values) { "无效配置：$key" } }
             val date = j.optString("statDate", "")
             if (date.isNotBlank()) java.time.LocalDate.parse(date)
-            val notes = j.optString("commonNotes", "")
-            require(notes.length <= 4000) { "常用备注过长" }
             return Experience(
                 choice("motionStrength", "normal", setOf("subtle", "normal", "lively")),
                 choice("hapticStrength", "light", setOf("light", "firm")),
@@ -68,7 +64,6 @@ data class Experience(
                 j.optBoolean("rememberStats", true),
                 date,
                 choice("backupDays", "off", setOf("off", "7", "30")),
-                notes,
             )
         }
     }

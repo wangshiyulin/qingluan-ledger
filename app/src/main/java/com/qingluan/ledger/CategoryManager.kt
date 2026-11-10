@@ -82,7 +82,7 @@ fun CategoryManager(
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = back) { Icon(Icons.Outlined.ArrowBack, "返回") }
+            PageBackButton(back)
             listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (v, n) ->
                 FilterChip(
                     type == v,

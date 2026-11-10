@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.qingluan.ledger.LaunchTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-10T06:51:26" hostname="013a23489aff" time="12.18">
-  <properties/>
-  <testcase name="aboutRootSettingsAndRightSideSelection" classname="com.qingluan.ledger.LaunchTest" time="12.18"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

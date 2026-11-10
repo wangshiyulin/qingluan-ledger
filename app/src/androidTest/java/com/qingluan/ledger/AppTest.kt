@@ -759,18 +759,13 @@ class AppTest {
         compose.onNodeWithTag("bill-checkbox-$id").assertIsOn().performClick().assertIsOff()
         compose.onNodeWithContentDescription("退出多选").performClick()
         compose.onNodeWithText("设置").performClick()
-        listOf("常用备注", "列表显示").forEach {
-            compose.onNodeWithText(it).performScrollTo().assertExists()
-        }
+        listOf("列表显示").forEach { compose.onNodeWithText(it).performScrollTo().assertExists() }
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         listOf("常用备注", "列表显示").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("操作反馈"))
         compose.onNodeWithText("操作反馈").assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("统计偏好"))
         compose.onNodeWithText("统计偏好").assertExists()
-        compose.onNodeWithContentDescription("返回").performClick()
-        compose.onNodeWithText("常用备注").performScrollTo().performClick()
-        compose.onNodeWithText("常用备注（每行一条）").assertExists()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("关于").performScrollTo()
         compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) {
@@ -799,6 +794,48 @@ class AppTest {
                 .isNotEmpty()
         }
         compose.onNode(hasText("Apache", substring = true)).assertExists()
+    }
+
+    @Test
+    fun releaseLayoutReceiptAndMenuCleanup() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.categories.value.isNotEmpty()
+        }
+        val category = vm.categories.value.first { it.type == "EXPENSE" }.name
+        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("常用备注").assertDoesNotExist()
+        compose.onNodeWithText("分类管理").performScrollTo().performClick()
+        val baseline = compose.onNodeWithTag("page-back").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithContentDescription("返回").performClick()
+        listOf("个性化", "列表显示", "本地数据", "关于").forEach { page ->
+            compose.onNodeWithText(page).performScrollTo()
+            val target=compose.onNodeWithText(page).fetchSemanticsNode().boundsInRoot
+            val safeBottom=compose.activity.resources.displayMetrics.heightPixels-150f*compose.activity.resources.displayMetrics.density
+            if(target.bottom>safeBottom) compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy){it(0f,target.bottom-safeBottom)}
+            compose.onNodeWithText(page).performClick()
+            val bounds = compose.onNodeWithTag("page-back").fetchSemanticsNode().boundsInRoot
+            assert(
+                kotlin.math.abs(bounds.left - baseline.left) < 1f &&
+                    kotlin.math.abs(bounds.top - baseline.top) < 1f
+            )
+            if (page == "本地数据")
+                listOf("导入", "导出", "数据保护", "清空账单").forEach {
+                    compose.onNodeWithText(it).assertExists()
+                }
+            if (page == "关于") {
+                compose.onNodeWithText("官方网站").assertExists()
+                compose.onNodeWithText("待配置").assertDoesNotExist()
+            }
+            compose.onNodeWithContentDescription("返回").performClick()
+        }
+        compose.onNodeWithText("明细").performClick()
+        compose.onNodeWithContentDescription("记账").performClick()
+        compose.onNodeWithText(category).performClick()
+        compose.onNodeWithText("标签与票据").assertDoesNotExist()
+        compose.onNodeWithText("选择票据").performClick()
+        assert(AboutLinks.website == "https://ledger.qingluanx.com")
     }
 
     private fun waitForOff(label: String) {

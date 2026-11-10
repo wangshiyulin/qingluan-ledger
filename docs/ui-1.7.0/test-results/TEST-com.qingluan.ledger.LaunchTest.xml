@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.qingluan.ledger.LaunchTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-09T19:01:31" hostname="ee91d94dc0c3" time="22.384">
-  <properties/>
-  <testcase name="freeDragAcrossRowsAndExpandedIcons" classname="com.qingluan.ledger.LaunchTest" time="17.498"/>
-  <testcase name="swipeEditAndThemeDialog" classname="com.qingluan.ledger.LaunchTest" time="4.885"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

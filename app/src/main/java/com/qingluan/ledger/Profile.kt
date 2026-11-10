@@ -103,17 +103,6 @@ suspend fun commitAvatar(context: Context, image: Bitmap) =
         }
     }
 
-suspend fun storeAvatar(context: Context, uri: Uri) {
-    val raw = decodeAvatar(context, uri)
-    val image = avatarCrop(raw, 1f, 0f, 0f)
-    try {
-        commitAvatar(context, image)
-    } finally {
-        if (image !== raw) image.recycle()
-        raw.recycle()
-    }
-}
-
 @Composable
 fun ProfileHeader(vm: LedgerViewModel, rows: List<Entry>) {
     val context = LocalContext.current

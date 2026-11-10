@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "com.qingluan.ledger"
  compileSdk = 35
- defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 108; versionName = "1.0.0"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+ defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 109; versionName = "1.0.1"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget = "17" }
@@ -36,4 +36,12 @@ dependencies {
 tasks.withType<Test>().configureEach {
  jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
  providers.gradleProperty("testJavaExecutable").orNull?.let { executable = it }
+}
+
+// Keep the same public filename for debug/release; their output directories remain separate.
+android.applicationVariants.all {
+    val ledgerVersion = versionName
+    outputs.all {
+        (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "ledger-v$ledgerVersion.apk"
+    }
 }

@@ -128,17 +128,6 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun avatar(uri: android.net.Uri, done: () -> Unit = {}) = action {
-        try {
-            storeAvatar(getApplication(), uri)
-            getApplication<Application>().preferences.edit {
-                it[longPreferencesKey("avatarRevision")] = System.nanoTime()
-            }
-        } finally {
-            done()
-        }
-    }
-
     val appearance =
         app.preferences.data
             .map {
@@ -203,6 +192,14 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         action("应用启动") {
             localData.recover()
             getApplication<Application>().preferences.edit {
+                val experienceKey = stringPreferencesKey("experience")
+                it[experienceKey] =
+                    runCatching {
+                            Experience.decode(org.json.JSONObject(it[experienceKey] ?: "{}"))
+                                .json()
+                                .toString()
+                        }
+                        .getOrElse { Experience().json().toString() }
                 it.remove(stringPreferencesKey("fontFamily"))
                 it.remove(booleanPreferencesKey("glass"))
             }

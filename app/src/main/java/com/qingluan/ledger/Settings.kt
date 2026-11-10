@@ -52,10 +52,10 @@ fun Settings(
     else
         Column(Modifier.fillMaxSize()) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = back) { Icon(Icons.Outlined.ArrowBack, "返回") }
+                PageBackButton(back)
             }
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth(),
@@ -102,30 +102,6 @@ fun Settings(
                     item { PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") } }
                     item { PreferenceCard("统计偏好", Icons.Outlined.QueryStats, "") { open("统计偏好") } }
                 }
-                if (page == "常用备注")
-                    item {
-                        val experience by vm.experience.collectAsState()
-                        var value by remember { mutableStateOf(experience.commonNotes) }
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            OutlinedTextField(
-                                value,
-                                { value = it.take(4000) },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("常用备注（每行一条）") },
-                                minLines = 5,
-                                maxLines = 12,
-                            )
-                            Button(
-                                onClick = {
-                                    vm.experience("commonNotes", value)
-                                    back()
-                                },
-                                modifier = Modifier.align(Alignment.End),
-                            ) {
-                                Text("保存")
-                            }
-                        }
-                    }
                 if (page in listOf("操作反馈", "列表显示", "统计偏好"))
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -140,17 +116,20 @@ fun Settings(
                     }
                 if (page == "本地数据")
                     item {
-                        TransferTools(vm)
-                        ListItem(
-                            modifier = Modifier.clickable { open("数据保护") },
-                            headlineContent = { Text("数据保护") },
-                        )
-                        ListItem(
-                            modifier = Modifier.clickable { clear = true },
-                            headlineContent = {
-                                Text("清空账单", color = MaterialTheme.colorScheme.error)
-                            },
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TransferTools(vm)
+                            SettingsActionCard(
+                                "数据保护",
+                                Icons.Outlined.VerifiedUser,
+                                { open("数据保护") },
+                            )
+                            SettingsActionCard(
+                                "清空账单",
+                                Icons.Outlined.DeleteOutline,
+                                { clear = true },
+                                danger = true,
+                            )
+                        }
                     }
             }
         }
@@ -312,7 +291,6 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
         listOf(
                 "分类管理" to Icons.Outlined.Category,
                 "个性化" to Icons.Outlined.Palette,
-                "常用备注" to Icons.Outlined.Notes,
                 "列表显示" to Icons.Outlined.ViewAgenda,
                 "本地数据" to Icons.Outlined.FolderOpen,
                 "关于" to Icons.Outlined.Info,
@@ -399,5 +377,44 @@ private fun PreferenceSwitch(
             Text(label, Modifier.weight(1f))
             Switch(checked, onCheckedChange = null)
         }
+    }
+}
+
+@Composable
+fun SettingsActionCard(
+    label: String,
+    image: ImageVector,
+    click: () -> Unit,
+    danger: Boolean = false,
+) {
+    Surface(
+        Modifier.fillMaxWidth().elasticClickable(click),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        ListItem(
+            headlineContent = {
+                Text(
+                    label,
+                    color =
+                        if (danger) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface,
+                )
+            },
+            leadingContent = {
+                Icon(
+                    image,
+                    null,
+                    tint =
+                        if (danger) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary,
+                )
+            },
+            trailingContent = { Icon(Icons.Outlined.ChevronRight, null) },
+            colors =
+                ListItemDefaults.colors(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                ),
+        )
     }
 }

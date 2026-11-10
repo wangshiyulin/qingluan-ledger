@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,8 +49,8 @@ fun TransferTools(vm: LedgerViewModel) {
                 }
             }
         }
-    ListItem(modifier = Modifier.clickable { export = true }, headlineContent = { Text("导出") })
-    ListItem(modifier = Modifier.clickable { importing = true }, headlineContent = { Text("导入") })
+    SettingsActionCard("导出", Icons.Outlined.UploadFile, { export = true })
+    SettingsActionCard("导入", Icons.Outlined.FileDownload, { importing = true })
     if (export) ExportDialog(vm, dismiss = { export = false })
     if (importing)
         GlassAlertDialog(

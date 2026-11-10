@@ -24,7 +24,17 @@ class ProfileTest {
         val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)
         original.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
-        storeAvatar(context, Uri.fromFile(original))
+        suspend fun importAvatar() {
+            val raw = decodeAvatar(context, Uri.fromFile(original))
+            val cropped = avatarCrop(raw, 1f, 0f, 0f)
+            try {
+                commitAvatar(context, cropped)
+            } finally {
+                cropped.recycle()
+                raw.recycle()
+            }
+        }
+        importAvatar()
         val target = File(context.filesDir, "avatar.jpg")
         val result = BitmapFactory.decodeFile(target.path)
         assertEquals(512, result.width)
@@ -32,7 +42,7 @@ class ProfileTest {
         result.recycle()
         val before = target.readBytes()
         original.writeText("invalid image")
-        assertTrue(runCatching { storeAvatar(context, Uri.fromFile(original)) }.isFailure)
+        assertTrue(runCatching { importAvatar() }.isFailure)
         assertArrayEquals(before, target.readBytes())
         original.delete()
         target.delete()

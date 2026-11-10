@@ -1,48 +1,139 @@
-# 青鸾记账
+<div align="center">
+  <img src="app/src/main/res/drawable-nodpi/brand_logo.png" width="96" height="96" alt="青鸾记账图标" />
+  <h1>青鸾记账</h1>
+  <p>一款数据保存在本机的原生 Android 记账应用。</p>
+  <p>Android 8.0+ · Kotlin · Jetpack Compose · Material 3</p>
+  <p>
+    <a href="https://github.com/wangshiyulin/qingluan-ledger/releases">下载版本</a> ·
+    <a href="https://github.com/wangshiyulin/qingluan-ledger/issues">问题反馈</a> ·
+    <a href="https://ledger.qingluanx.com">官方网站</a> ·
+    <a href="https://qingluanx.com">博客</a>
+  </p>
+</div>
 
-当前版本：**1.0.0**（初始版本）。Android 内部升级编号为 108，保留对已安装开发版的覆盖升级能力。
+## 简介
 
-原生 Android 个人记账应用。Kotlin / Compose / Material 3 / Room，API 26+，默认人民币，支持 178 种 ISO 4217 币种，纯本地，无账号和网络权限。
+青鸾记账支持日常收支记录、分类统计、多币种和本地备份。无需注册账号，无广告，不申请网络权限；账单、票据和个人资料保存在应用的本地私有目录。
 
-## 使用
+当前版本：**v1.0.1**。版本说明见 [更新日志](CHANGELOG.md)。
 
-底部三个入口：明细、洞察、设置。右下角按钮打开记账。设置含本地昵称头像、天数/笔数/分币种结余，以及分类管理、个性化和本地数据二级页，外观模式在个性化中通过弹窗切换。点击明细账单直接编辑，左滑达到阈值松手后弹出删除确认；日历可快捷记账。
+## 功能
 
-分类被引用时需迁移到同收支类型的另一分类；每种类型保留至少一个分类。金额按各币种最小单位以 Long 存储；人民币两位、日元零位、KWD 三位、CLF 四位小数。记账页选择币种，账单和统计自动按币种分别展示，不换算或合计不同币种。周一开周，所有日期按设备当前本地时区解释。
+### 记账与管理
 
-## 构建
+- 记录收入、支出、日期、时间、备注及票据图片。
+- 自定义收支分类与图标，长按拖动调整分类顺序。
+- 点击账单直接编辑，左滑确认删除，并可撤销删除操作。
+- 长按账单进入多选，批量修改分类、备注和标签，或删除、导出所选账单。
+- 按月份、日期范围、收支类型、分类及关键词筛选账单。
+- 支持滚动渐进显示。
 
-安装 JDK 17+、Android SDK 35 与 Build Tools 35.0.0；在 local.properties 中设置 sdk.dir，或设置 ANDROID_HOME。
+### 统计与多币种
 
-```sh
-./gradlew test
-./gradlew assembleDebug
-./gradlew connectedDebugAndroidTest # 需要已连接的设备或模拟器
+- 提供月度、年度和全部记录的收入、支出、结余统计。
+- 展示收支趋势、分类排行、圆环占比、日历及年度报告。
+- 支持 178 种内置 ISO 4217 币种及对应金额精度。
+- 不同币种分别统计，不提供汇率换算，也不直接合计不同币种。
+- 可设置默认统计周期、类型、图表，并记住统计筛选。
+
+### 外观与操作
+
+- 支持浅色、深色、跟随系统及纯黑深色模式。
+- 提供多种主题配色；Android 12 及以上支持系统动态配色。
+- 可调整字号、列表密度，以及时间、备注和金额的显示方式。
+- 支持悬浮记账按钮、即时页面切换和透明模糊底栏。
+- 可配置局部动画、触觉反馈的强度及触发场景。
+- 支持本地昵称、头像及圆形裁剪。
+
+### 导入、导出与保护
+
+- **JSON**：完整备份与恢复，也支持追加导入或替换指定范围的账单。
+- **CSV**：导入、导出本应用的账单表格，可选择备注、标签和票据列。
+- **加密备份（`.qlb`）**：使用密码保护 JSON 备份，采用 AES-256-GCM。
+- 导入前预览记录数量、日期和币种，选择范围与重复记录处理方式。
+- 导出支持全部、当前明细筛选、指定日期或多选账单，可设置文件名并选择保存位置。
+- 提供系统身份验证应用锁、后台预览隐藏和打开应用时的备份提醒。
+
+## 下载与使用
+
+前往 [GitHub Releases](https://github.com/wangshiyulin/qingluan-ledger/releases) 查看可用的安装包。
+
+- **明细**：查看、搜索和筛选账单；点击右下角按钮开始记账。
+- **洞察**：查看收入、支出和结余趋势及分类统计。
+- **设置**：管理分类、外观、列表显示和本地数据。
+
+## 数据说明
+
+- 应用不自动上传数据，也不提供账号或云同步服务。关于页面中的链接由系统浏览器打开。
+- JSON 与 CSV 为明文文件；需要密码保护时请选择加密备份。备份密码不保存，忘记后无法恢复加密文件。
+- 完整备份包含账单、分类、头像、昵称及外观和体验配置；应用锁等设备安全设置保留在本机。
+- 子集导出只包含所选账单及分类，不等同于完整备份。
+- 单次导入文件上限为 **16 MiB**，最多 **100,000 笔账单、5,000 个分类**。含大量票据时可缩小导出范围，或在 CSV 中排除票据列。
+- 开启后台预览隐藏会同时禁止系统截图；身份验证、模糊效果和触觉表现取决于系统与设备支持。
+- 运行日志仅保留最近 100 条操作结果，不记录账单内容，不自动上传。
+
+## 从源码构建
+
+### 环境要求
+
+- JDK 17
+- Android SDK Platform 35
+- Android SDK Build Tools 35.0.0
+- Android Studio，或可运行 Gradle Wrapper 的命令行环境
+
+### 构建步骤
+
+1. 克隆仓库：
+
+   ```bash
+   git clone https://github.com/wangshiyulin/qingluan-ledger.git
+   cd qingluan-ledger
+   ```
+
+2. 使用 Android Studio 打开项目并完成 Gradle Sync。Android Studio 会生成本机的 `local.properties`；命令行构建也可通过 `ANDROID_HOME` 指定 SDK 路径。
+
+3. 构建 Debug APK。
+
+   **macOS / Linux：**
+
+   ```bash
+   chmod +x gradlew
+   ./gradlew assembleDebug
+   ```
+
+   **Windows PowerShell：**
+
+   ```powershell
+   .\gradlew.bat assembleDebug
+   ```
+
+输出文件：`app/build/outputs/apk/debug/ledger-v1.0.1.apk`。
+
+首次同步需要联网下载构建工具及依赖；应用本身不需要网络权限。正式发布请使用自己的发布签名，并妥善保存签名文件；不同签名的安装包无法直接覆盖安装。
+
+## 项目结构
+
+```text
+app/
+├── src/main/          应用代码、资源与第三方许可
+├── src/test/          单元测试与 JVM 界面测试
+├── src/androidTest/   设备测试
+└── schemas/           Room 数据库结构记录
+gradle/wrapper/        Gradle Wrapper
+gradlew                macOS / Linux 构建入口
+gradlew.bat            Windows 构建入口
 ```
 
-APK：app/build/outputs/apk/debug/app-debug.apk。依赖版本均锁定。
+主要技术：Kotlin、Jetpack Compose、Material 3、Room、DataStore、Navigation Compose、Haze。
 
-## 数据与备份
+## 反馈与参与
 
-数据库保存在 Android 应用私有目录，关闭系统自动备份。设置中通过系统文件选择器导出/恢复 JSON。完整备份 formatVersion=5，包含完整分类、交易及逐笔 currencyCode、头像、昵称、主题、字体和个性化设置；金额为整数最小货币单位、时间为 epoch milliseconds。兼容 v1/v2 账单备份和 v3/v4 完整备份，导入旧备份时保留当前个人资料和设置。导出和导入均可选择 CSV 表格；CSV 追加账单、补充缺失分类，并按重复记录数量跳过已有账单，不覆盖个人资料和设置。JSON 支持追加、范围替换与完整恢复；导入前预览，可筛选日期、收支及币种。导出支持全部、当前明细筛选、指定日期、多选账单及 CSV 可选列，文件名和系统保存位置可选。JSON/CSV 为明文，也可导出密码加密的 .qlb（AES-256-GCM）。恢复先校验，再事务替换；不合规文件保留现有数据库。清空账单保留分类。
+欢迎通过 [Issues](https://github.com/wangshiyulin/qingluan-ledger/issues) 提交问题或建议。反馈时请说明应用版本、Android 版本、复现步骤及预期结果；提交截图或日志前，请移除个人信息。
 
-数据库版本 3，导出 Room schema；1→2 添加币种字段并保留旧账单为 CNY，2→3 增加标签与票据，未使用破坏性升级。
+官方网站：[ledger.qingluanx.com](https://ledger.qingluanx.com)（建设中）。
 
-## 界面
+博客：[qingluanx.com](https://qingluanx.com)。
 
-浅色/深色/跟随系统，Android 12+ 动态色。底栏使用 Haze 背景模糊，旧版本使用半透明降级；图表 Compose Canvas 绘制，系统组件提供按压和弹窗反馈。个性化二级页可分别关闭灵动效果、触觉反馈，并设置字号与主题；材质始终启用。底栏后可滚动经过账单，展示半透明背景模糊与边缘高光；不是光学折射。弹窗背景模糊取决于系统支持。页面导航始终即时切换，Compose 动效遵循系统动画时长设置。
+## 第三方说明
 
-## 验证与限制
-
-具体执行结果见 docs/verification.md。尚未完成设备验证的功能不视为已验证。没有自动上传、账户、预算或云同步功能。系统文件保存由用户选择目标；备份提醒在打开应用时触发，不申请通知权限。
-
-单次备份恢复最多 16MiB、100000 笔交易和 5000 个分类；超过限制会拒绝导入并保留当前数据。
-
-## 链接
-
-- GitHub：https://github.com/wangshiyulin/qingluan-ledger
-- 博客：https://qingluanx.com
-- 更新发布：https://github.com/wangshiyulin/qingluan-ledger/releases
-- 问题反馈：https://github.com/wangshiyulin/qingluan-ledger/issues
-
-更新说明见 [CHANGELOG.md](CHANGELOG.md)，继续开发见 [开发指南](docs/development.md)。官方网站地址尚未提供，应用内保留待配置。更新入口打开 Releases 页面，不自动联网比较版本。
+功能图标采用 AndroidX Compose Material Icons，遵循 Apache License 2.0。相关说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，许可文本位于 [app/src/main/assets/licenses/](app/src/main/assets/licenses/)。应用品牌图案独立于第三方图标许可。

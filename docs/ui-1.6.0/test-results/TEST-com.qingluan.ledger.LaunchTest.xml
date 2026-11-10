@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.qingluan.ledger.LaunchTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-09T18:24:44" hostname="ee91d94dc0c3" time="17.224">
-  <properties/>
-  <testcase name="requestedLayoutProfileAndMixedCurrency" classname="com.qingluan.ledger.LaunchTest" time="17.224"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

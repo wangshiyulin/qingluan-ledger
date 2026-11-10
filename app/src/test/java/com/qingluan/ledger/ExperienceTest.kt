@@ -21,6 +21,9 @@ class ExperienceTest {
                 hapticStrength = "firm",
             )
         assertEquals(e, Experience.decode(e.json()))
+        assertFalse(
+            Experience.decode(e.json().put("commonNotes", "legacy memo")).json().has("commonNotes")
+        )
         assertEquals("••••", visibleMoney(200, "CNY", true))
         val image = Bitmap.createBitmap(1024, 512, Bitmap.Config.ARGB_8888)
         image.eraseColor(Color.RED)

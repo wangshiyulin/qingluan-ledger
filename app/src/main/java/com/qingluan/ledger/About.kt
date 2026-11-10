@@ -8,7 +8,6 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +22,7 @@ import kotlinx.coroutines.withContext
 
 /** Fill these with the owner's HTTPS addresses when supplied. No guessed or third-party URLs. */
 object AboutLinks {
-    const val website = ""
+    const val website = "https://ledger.qingluanx.com"
     const val github = "https://github.com/wangshiyulin/qingluan-ledger"
     const val blog = "https://qingluanx.com"
     const val updates = "$github/releases"
@@ -87,10 +86,10 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
     }
     Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = back) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
+            PageBackButton(back)
             Text(page, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             if (page == "运行日志")
                 IconButton(onClick = { refresh++ }) { Icon(Icons.Outlined.Refresh, "刷新日志") }
@@ -180,6 +179,7 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                     AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                 }
                 "更新日志" -> {
+                    Changelog("1.0.1", "统一返回按钮位置；简化票据选择与设置入口；调整本地数据卡片；配置官方网站。")
                     Changelog("1.0.0", "初始版本。")
                 }
                 "运行日志" -> {

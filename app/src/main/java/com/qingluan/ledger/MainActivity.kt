@@ -42,7 +42,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-val accent = Color(0xFF276B60)
 val expenseColor = Color(0xFFB25643)
 
 @Composable

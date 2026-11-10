@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.qingluan.ledger.CompleteBackupTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T04:07:11" hostname="013a23489aff" time="5.962">
-  <properties/>
-  <testcase name="fullRoundTripIncludesAvatarAndAllSettings" classname="com.qingluan.ledger.CompleteBackupTest" time="5.692"/>
-  <testcase name="legacyBackupsKeepCurrentPersonalization" classname="com.qingluan.ledger.CompleteBackupTest" time="0.142"/>
-  <testcase name="invalidInputPreservesDataAndInterruptedRestoreRecovers" classname="com.qingluan.ledger.CompleteBackupTest" time="0.127"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

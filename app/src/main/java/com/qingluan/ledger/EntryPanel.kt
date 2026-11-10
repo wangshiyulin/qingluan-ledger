@@ -41,9 +41,7 @@ fun EntryPanel(
     var amount by rememberSaveable {
         mutableStateOf(original?.let { Money.text(it.amount, it.currencyCode) } ?: "")
     }
-    var tags by rememberSaveable { mutableStateOf(original?.tags ?: "") }
     var receipt by remember { mutableStateOf(original?.receipt ?: "") }
-    var extrasOpen by remember { mutableStateOf(false) }
     var note by rememberSaveable { mutableStateOf(original?.note ?: "") }
     var dateText by rememberSaveable { mutableStateOf((original?.date() ?: initial).toString()) }
     var timeText by rememberSaveable {
@@ -200,9 +198,7 @@ fun EntryPanel(
                         }
                     ),
             )
-            TextButton(onClick = { extrasOpen = true }) {
-                Text(if (tags.isBlank() && receipt.isBlank()) "标签与票据" else "标签与票据 · 已添加")
-            }
+            ReceiptSelector(receipt) { receipt = it }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -311,7 +307,7 @@ fun EntryPanel(
                                     original?.createdAt ?: System.currentTimeMillis(),
                                     System.currentTimeMillis(),
                                     currencyCode = currency,
-                                    tags = tags,
+                                    tags = original?.tags ?: "",
                                     receipt = receipt,
                                 )
                             )
@@ -326,19 +322,6 @@ fun EntryPanel(
             }
         }
     }
-    if (extrasOpen)
-        BillExtrasDialog(
-            tags,
-            receipt,
-            note,
-            LocalExperience.current.commonNotes,
-            { t, r, n ->
-                tags = t
-                receipt = r
-                note = n
-            },
-            { extrasOpen = false },
-        )
     if (dateOpen)
         AppDateDialog(LocalDate.parse(dateText), { dateOpen = false }) {
             dateText = it.toString()

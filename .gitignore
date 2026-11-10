@@ -11,3 +11,6 @@ dist/
 *.keystore
 keystore.properties
 .DS_Store
+
+# Optional development notes and delivery records
+_publish_extras/

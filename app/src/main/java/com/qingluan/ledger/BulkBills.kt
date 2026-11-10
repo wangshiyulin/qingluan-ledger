@@ -4,7 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,13 +66,13 @@ fun BulkBills(vm: LedgerViewModel, scopeIds: Set<Long>, initialId: Long, dismiss
                 Modifier.fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = dismiss) { Icon(Icons.Outlined.ArrowBack, "退出多选") }
+                    PageBackButton(dismiss, "退出多选")
                     Text("已选 ${valid.size} 笔", Modifier.weight(1f))
                     TextButton(
                         onClick = {
