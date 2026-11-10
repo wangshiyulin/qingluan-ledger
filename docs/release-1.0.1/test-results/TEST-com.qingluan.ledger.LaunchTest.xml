@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.LaunchTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-09T19:33:14" hostname="ee91d94dc0c3" time="20.921">
+  <properties/>
+  <testcase name="calendarMatchesFilterGridWidth" classname="com.qingluan.ledger.LaunchTest" time="18.294"/>
+  <testcase name="outsideSearchAndTwoTypeFilters" classname="com.qingluan.ledger.LaunchTest" time="2.627"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

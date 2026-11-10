@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.LaunchTest" tests="21" skipped="0" failures="0" errors="0" timestamp="2026-11-09T17:50:25" hostname="ee91d94dc0c3" time="74.294">
+  <properties/>
+  <testcase name="immediateNavigationFabAndThemedDates[28]" classname="com.qingluan.ledger.LaunchTest" time="16.125"/>
+  <testcase name="categoryGridDragPersistsAndMenuOpens[28]" classname="com.qingluan.ledger.LaunchTest" time="1.471"/>
+  <testcase name="popupEntryCrud[28]" classname="com.qingluan.ledger.LaunchTest" time="2.115"/>
+  <testcase name="monthYearSearchAndPersonalization[28]" classname="com.qingluan.ledger.LaunchTest" time="2.888"/>
+  <testcase name="filterAndMigrationOptionsUseGrids[28]" classname="com.qingluan.ledger.LaunchTest" time="1.313"/>
+  <testcase name="compactPagesAndSettingsNavigation[28]" classname="com.qingluan.ledger.LaunchTest" time="1.558"/>
+  <testcase name="nonCnyEntryKeepsItsCurrencyAndPrecision[28]" classname="com.qingluan.ledger.LaunchTest" time="0.787"/>
+  <testcase name="immediateNavigationFabAndThemedDates[34]" classname="com.qingluan.ledger.LaunchTest" time="12.715"/>
+  <testcase name="categoryGridDragPersistsAndMenuOpens[34]" classname="com.qingluan.ledger.LaunchTest" time="1.184"/>
+  <testcase name="popupEntryCrud[34]" classname="com.qingluan.ledger.LaunchTest" time="2.133"/>
+  <testcase name="monthYearSearchAndPersonalization[34]" classname="com.qingluan.ledger.LaunchTest" time="2.454"/>
+  <testcase name="filterAndMigrationOptionsUseGrids[34]" classname="com.qingluan.ledger.LaunchTest" time="0.935"/>
+  <testcase name="compactPagesAndSettingsNavigation[34]" classname="com.qingluan.ledger.LaunchTest" time="2.019"/>
+  <testcase name="nonCnyEntryKeepsItsCurrencyAndPrecision[34]" classname="com.qingluan.ledger.LaunchTest" time="1.379"/>
+  <testcase name="immediateNavigationFabAndThemedDates" classname="com.qingluan.ledger.LaunchTest" time="15.552"/>
+  <testcase name="categoryGridDragPersistsAndMenuOpens" classname="com.qingluan.ledger.LaunchTest" time="0.923"/>
+  <testcase name="popupEntryCrud" classname="com.qingluan.ledger.LaunchTest" time="1.972"/>
+  <testcase name="monthYearSearchAndPersonalization" classname="com.qingluan.ledger.LaunchTest" time="2.537"/>
+  <testcase name="filterAndMigrationOptionsUseGrids" classname="com.qingluan.ledger.LaunchTest" time="1.413"/>
+  <testcase name="compactPagesAndSettingsNavigation" classname="com.qingluan.ledger.LaunchTest" time="1.794"/>
+  <testcase name="nonCnyEntryKeepsItsCurrencyAndPrecision" classname="com.qingluan.ledger.LaunchTest" time="0.987"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

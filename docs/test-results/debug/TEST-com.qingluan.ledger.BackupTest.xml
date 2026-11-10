@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.BackupTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-09T15:48:55" hostname="ee91d94dc0c3" time="0.382">
+  <properties/>
+  <testcase name="zeroAndOverflowRejected" classname="com.qingluan.ledger.BackupTest" time="0.244"/>
+  <testcase name="roundTripPreservesCentsAndIds" classname="com.qingluan.ledger.BackupTest" time="0.083"/>
+  <testcase name="rejectsFractionalCents" classname="com.qingluan.ledger.BackupTest" time="0.011"/>
+  <testcase name="emptyStatsAreZero" classname="com.qingluan.ledger.BackupTest" time="0.008"/>
+  <testcase name="rejectsUnknownVersion" classname="com.qingluan.ledger.BackupTest" time="0.005"/>
+  <testcase name="rejectsBrokenReference" classname="com.qingluan.ledger.BackupTest" time="0.009"/>
+  <testcase name="rejectsNonPositiveAmount" classname="com.qingluan.ledger.BackupTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.CurrencyMigrationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-09T17:51:39" hostname="ee91d94dc0c3" time="7.102">
+  <properties/>
+  <testcase name="versionOneDatabaseMigratesWithoutChangingCnyAmounts" classname="com.qingluan.ledger.CurrencyMigrationTest" time="7.102"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

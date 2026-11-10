@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.LaunchTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-10T03:35:19" hostname="013a23489aff" time="10.262">
+  <properties/>
+  <testcase name="screenshotCategorySectionsAndDataLabels" classname="com.qingluan.ledger.LaunchTest" time="10.262"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

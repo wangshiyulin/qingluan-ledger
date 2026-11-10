@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.LedgerTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-09T17:51:46" hostname="ee91d94dc0c3" time="0.089">
+  <properties/>
+  <testcase name="catalogRejectsUnknownCurrency" classname="com.qingluan.ledger.LedgerTest" time="0.007"/>
+  <testcase name="currencyPrecisionAndBoundsAreExact" classname="com.qingluan.ledger.LedgerTest" time="0.001"/>
+  <testcase name="dailyMeanAndBucketsStayExact" classname="com.qingluan.ledger.LedgerTest" time="0.013"/>
+  <testcase name="totalsAreExact" classname="com.qingluan.ledger.LedgerTest" time="0.001"/>
+  <testcase name="currentMonthTrendStopsAtToday" classname="com.qingluan.ledger.LedgerTest" time="0.001"/>
+  <testcase name="leapMonthBounds" classname="com.qingluan.ledger.LedgerTest" time="0.0"/>
+  <testcase name="moneyIsExact" classname="com.qingluan.ledger.LedgerTest" time="0.001"/>
+  <testcase name="totalsRejectMixedCurrencies" classname="com.qingluan.ledger.LedgerTest" time="0.0"/>
+  <testcase name="largeRangesHaveBoundedTrendBuckets" classname="com.qingluan.ledger.LedgerTest" time="0.007"/>
+  <testcase name="previousMonthIsCalendarBased" classname="com.qingluan.ledger.LedgerTest" time="0.0"/>
+  <testcase name="pastMonthAndCurrentYearKeepExpectedBuckets" classname="com.qingluan.ledger.LedgerTest" time="0.046"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

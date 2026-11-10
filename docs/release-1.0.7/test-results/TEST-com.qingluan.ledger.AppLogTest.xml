@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.qingluan.ledger.AppLogTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-10T06:08:42" hostname="013a23489aff" time="4.418">
+  <properties/>
+  <testcase name="boundedAnonymousLogAndUnsetLinks" classname="com.qingluan.ledger.AppLogTest" time="4.418"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
