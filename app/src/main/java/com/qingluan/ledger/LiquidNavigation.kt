@@ -57,7 +57,7 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
         listOf(
                 "明细" to Icons.Outlined.ReceiptLong,
                 "洞察" to Icons.Outlined.Insights,
-                "设置" to Icons.Outlined.Settings,
+                "我的" to Icons.Outlined.Settings,
             )
             .forEach { (label, image) ->
                 val selected = route == label

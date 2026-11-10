@@ -73,6 +73,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    val multiSelecting = MutableStateFlow(false)
     val currentExportIds = MutableStateFlow<Set<Long>>(emptySet())
     val undo = MutableStateFlow<List<Entry>>(emptyList())
 
@@ -135,6 +136,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
                     it[stringPreferencesKey("palette")] ?: "system",
                     it[booleanPreferencesKey("pureBlack")] ?: false,
                     it[stringPreferencesKey("fontSize")] ?: "system",
+                    (it[intPreferencesKey("customFontPercent")] ?: 100).coerceIn(75, 160),
                 )
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppAppearance())
@@ -148,6 +150,15 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
             }
         require(value in allowed)
         getApplication<Application>().preferences.edit { it[stringPreferencesKey(key)] = value }
+    }
+
+    fun customFontPercent(value: Int, done: () -> Unit = {}) = action {
+        require(value in 75..160) { "字号比例需在75%至160%之间" }
+        getApplication<Application>().preferences.edit {
+            it[stringPreferencesKey("fontSize")] = "custom"
+            it[intPreferencesKey("customFontPercent")] = value
+        }
+        done()
     }
 
     fun pureBlack(value: Boolean) = action {

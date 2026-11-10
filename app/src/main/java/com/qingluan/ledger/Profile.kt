@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -126,10 +125,7 @@ fun ProfileHeader(vm: LedgerViewModel, rows: List<Entry>) {
     var cropUri by remember { mutableStateOf<Uri?>(null) }
     var cropCameraPath by remember { mutableStateOf("") }
     var cameraPath by rememberSaveable { mutableStateOf("") }
-    val photo =
-        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) cropUri = uri
-        }
+    val photo = rememberImagePicker({ cropUri = it }, { vm.message.value = "无法打开系统图片选择器" })
     val camera =
         rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             if (cameraPath.isNotEmpty()) {
@@ -235,11 +231,7 @@ fun ProfileHeader(vm: LedgerViewModel, rows: List<Entry>) {
                             onClick = {
                                 feedback()
                                 try {
-                                    photo.launch(
-                                        PickVisualMediaRequest(
-                                            ActivityResultContracts.PickVisualMedia.ImageOnly
-                                        )
-                                    )
+                                    photo()
                                 } catch (_: Exception) {
                                     vm.message.value = "无法打开相册"
                                 }

@@ -41,6 +41,7 @@ fun EntryPanel(
     var amount by rememberSaveable {
         mutableStateOf(original?.let { Money.text(it.amount, it.currencyCode) } ?: "")
     }
+    var replaceAmountOnInput by rememberSaveable { mutableStateOf(original != null) }
     var receipt by remember { mutableStateOf(original?.receipt ?: "") }
     var note by rememberSaveable { mutableStateOf(original?.note ?: "") }
     var dateText by rememberSaveable { mutableStateOf((original?.date() ?: initial).toString()) }
@@ -81,9 +82,11 @@ fun EntryPanel(
         feedback()
         if (value == "⌫") {
             amount = amount.dropLast(1)
+            replaceAmountOnInput = false
             return
         }
-        val next = if (value == "." && amount.isEmpty()) "0." else amount + value
+        val base = if (replaceAmountOnInput) "" else amount
+        val next = if (value == "." && base.isEmpty()) "0." else base + value
         if (
             next.length <= 22 &&
                 next.matches(
@@ -92,8 +95,10 @@ fun EntryPanel(
                         else "[0-9]+(\\.[0-9]{0,${Currencies.get(currency).digits}})?"
                     )
                 )
-        )
+        ) {
             amount = next
+            replaceAmountOnInput = false
+        }
     }
     Column(
         Modifier.fillMaxWidth()

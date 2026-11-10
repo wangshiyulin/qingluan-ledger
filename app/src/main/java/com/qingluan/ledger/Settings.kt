@@ -24,7 +24,7 @@ fun Settings(
     back: () -> Unit,
     open: (String) -> Unit = {},
 ) {
-    androidx.activity.compose.BackHandler(onBack = back)
+    androidx.activity.compose.BackHandler(enabled = LocalRouteActive.current, onBack = back)
     val theme by vm.theme.collectAsState()
     val effects by vm.effects.collectAsState()
     val style by vm.appearance.collectAsState()
@@ -35,8 +35,10 @@ fun Settings(
     var clear by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf<Category?>(null) }
     var deleting by remember { mutableStateOf<Category?>(null) }
+    var migrating by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf<Long?>(null) }
     if (page in aboutPages) AboutPage(vm, page, back, open)
+    else if (page == "同步") SyncPlanPage(back)
     else if (page == "分类管理")
         CategoryManager(
             cats,
@@ -46,6 +48,7 @@ fun Settings(
                 deleting = it
                 target = null
             },
+            onMigrate = { migrating = true },
         ) { type, ids ->
             vm.action { vm.repository.reorderCategories(type, ids) }
         }
@@ -70,11 +73,7 @@ fun Settings(
                         }
                     }
                     item {
-                        PreferenceCard(
-                            "字体",
-                            Icons.Outlined.TextFields,
-                            fontSizes.getValue(style.fontSize),
-                        ) {
+                        PreferenceCard("字体", Icons.Outlined.TextFields, fontSizeLabel(style)) {
                             font = true
                         }
                     }
@@ -133,6 +132,7 @@ fun Settings(
                     }
             }
         }
+    if (migrating) CategoryMigrationDialog(vm, cats) { migrating = false }
     if (font) FontDialog(vm, style) { font = false }
     if (palette) PaletteDialog(vm, style) { palette = false }
     if (appearance)
@@ -293,6 +293,7 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
                 "个性化" to Icons.Outlined.Palette,
                 "列表显示" to Icons.Outlined.ViewAgenda,
                 "本地数据" to Icons.Outlined.FolderOpen,
+                "同步" to Icons.Outlined.CloudSync,
                 "关于" to Icons.Outlined.Info,
             )
             .forEach { (label, image) ->

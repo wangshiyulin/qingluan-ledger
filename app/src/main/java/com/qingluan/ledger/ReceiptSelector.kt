@@ -2,9 +2,6 @@ package com.qingluan.ledger
 
 import android.graphics.BitmapFactory
 import android.util.Base64
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -28,8 +25,8 @@ fun ReceiptSelector(receipt: String, change: (String) -> Unit) {
     val feedback = rememberAppFeedback()
     val currentChange by rememberUpdatedState(change)
     val picker =
-        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null)
+        rememberImagePicker(
+            onImage = { uri ->
                 scope.launch {
                     loading = true
                     error = ""
@@ -43,7 +40,9 @@ fun ReceiptSelector(receipt: String, change: (String) -> Unit) {
                         loading = false
                     }
                 }
-        }
+            },
+            onError = { error = "无法打开系统图片选择器" },
+        )
     Column {
         Row {
             TextButton(
@@ -51,11 +50,7 @@ fun ReceiptSelector(receipt: String, change: (String) -> Unit) {
                 onClick = {
                     feedback()
                     try {
-                        picker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly
-                            )
-                        )
+                        picker()
                     } catch (_: Exception) {
                         error = "无法打开图片选择器"
                     }

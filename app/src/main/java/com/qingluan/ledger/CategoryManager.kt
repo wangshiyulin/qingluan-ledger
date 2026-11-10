@@ -32,6 +32,7 @@ fun CategoryManager(
     back: () -> Unit,
     edit: (Category) -> Unit,
     delete: (Category) -> Unit,
+    onMigrate: (() -> Unit)? = null,
     reorder: (String, List<Long>) -> Unit,
 ) {
     val effects = LocalEffects.current
@@ -88,9 +89,11 @@ fun CategoryManager(
                     type == v,
                     { type = v },
                     label = { Text(n) },
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
             }
+            if (onMigrate != null)
+                IconButton(onClick = onMigrate) { Icon(Icons.Outlined.SwapHoriz, "分类迁移") }
         }
         Box(
             Modifier.weight(1f).fillMaxWidth().clipToBounds().pointerInput(type) {

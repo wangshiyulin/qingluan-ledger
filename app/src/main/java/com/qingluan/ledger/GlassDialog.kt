@@ -41,9 +41,15 @@ fun ApplyDialogGlass() {
     DisposableEffect(view) {
         if (Build.VERSION.SDK_INT >= 31) {
             val window = (view.parent as? DialogWindowProvider)?.window
-            window?.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
-            window?.attributes = window?.attributes?.apply { blurBehindRadius = 24 }
-            window?.setBackgroundBlurRadius(24)
+            val manager = view.context.getSystemService(WindowManager::class.java)
+            if (runCatching { manager?.isCrossWindowBlurEnabled == true }.getOrDefault(false)) {
+                runCatching {
+                        window?.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                        window?.attributes = window?.attributes?.apply { blurBehindRadius = 24 }
+                        window?.setBackgroundBlurRadius(24)
+                    }
+                    .onFailure { window?.clearFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND) }
+            }
         }
         onDispose {}
     }

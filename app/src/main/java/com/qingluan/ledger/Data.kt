@@ -150,6 +150,18 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
             dao.deleteCategory(c.id)
         }
 
+    suspend fun migrateCategory(sourceId: Long, targetId: Long): Int =
+        db.withTransaction {
+            require(sourceId != targetId) { "来源与目标分类不能相同" }
+            val categories = dao.allCategories().associateBy { it.id }
+            val source = categories[sourceId] ?: error("来源分类已不存在")
+            val target = categories[targetId] ?: error("目标分类已不存在")
+            require(source.type == target.type) { "只能迁移到相同收支类型的分类" }
+            val count = dao.references(sourceId)
+            dao.migrate(sourceId, targetId, System.currentTimeMillis())
+            count
+        }
+
     suspend fun reorderCategories(type: String, ids: List<Long>) =
         db.withTransaction {
             val current = dao.allCategories().filter { it.type == type }

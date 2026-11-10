@@ -159,3 +159,22 @@ fun resolveEntryTime(
         !manual -> now
         else -> date.atTime(time).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
+
+/** A recorded day is a local date with at least one bill; multiple bills count once. */
+fun recordedDayMean(amount: Long, rows: List<Entry>): Long =
+    dailyMean(amount, rows.map { it.date() }.distinct().size.toLong())
+
+fun entrySubtitle(entry: Entry, display: Experience): String =
+    buildList {
+            if (display.showTime)
+                add(
+                    java.time.Instant.ofEpochMilli(entry.occurredAt)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalTime()
+                        .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                )
+            if (display.showNote && entry.note.isNotBlank()) add(entry.note)
+            if (entry.tags.isNotBlank()) add(entry.tags)
+            if (entry.receipt.isNotBlank()) add("票据")
+        }
+        .joinToString(" · ")

@@ -1,6 +1,5 @@
 package com.qingluan.ledger
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -9,10 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.room.withTransaction
 
 suspend fun editBills(
@@ -44,92 +41,66 @@ suspend fun editBills(
     }
 
 @Composable
-fun BulkBills(vm: LedgerViewModel, scopeIds: Set<Long>, initialId: Long, dismiss: () -> Unit) {
+fun BulkBillActions(
+    vm: LedgerViewModel,
+    scopeIds: Set<Long>,
+    selected: Set<Long>,
+    choose: (Set<Long>) -> Unit,
+    dismiss: () -> Unit,
+) {
     val all by vm.entries.collectAsState()
     val cats by vm.categories.collectAsState()
     val rows = all.filter { it.id in scopeIds }
-    var selected by rememberSaveable { mutableStateOf(setOf(initialId)) }
+    val valid = selected.intersect(rows.map { it.id }.toSet())
     var export by rememberSaveable { mutableStateOf(false) }
     var edit by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    val valid = selected.intersect(rows.map { it.id }.toSet())
-    val feedback = rememberAppFeedback()
-    BackHandler(onBack = dismiss)
-    Dialog(
-        onDismissRequest = dismiss,
-        properties =
-            DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 2.dp,
     ) {
-        ApplyDialogGlass()
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(
-                Modifier.fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 16.dp)
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+        Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("已选 ${valid.size} 笔", Modifier.weight(1f).padding(start = 8.dp))
+                TextButton(
+                    onClick = dismiss,
+                    modifier = Modifier.semantics { contentDescription = "退出多选" },
                 ) {
-                    PageBackButton(dismiss, "退出多选")
-                    Text("已选 ${valid.size} 笔", Modifier.weight(1f))
-                    TextButton(
-                        onClick = {
-                            selected =
-                                if (valid.size == rows.size) emptySet()
-                                else rows.map { it.id }.toSet()
-                        }
-                    ) {
-                        Text(if (valid.size == rows.size) "取消全选" else "全选")
-                    }
+                    Text("取消")
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        enabled = valid.isNotEmpty(),
-                        onClick = { edit = true },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("编辑")
-                    }
-                    TextButton(
-                        enabled = valid.isNotEmpty(),
-                        onClick = { export = true },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("导出所选")
-                    }
-                    TextButton(
-                        enabled = valid.isNotEmpty(),
-                        onClick = { deleting = true },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text("删除")
-                    }
+            }
+            Row(Modifier.fillMaxWidth()) {
+                TextButton(
+                    enabled = valid.isNotEmpty(),
+                    onClick = { edit = true },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("编辑")
                 }
-                LazyColumn(Modifier.weight(1f)) {
-                    items(rows, key = { it.id }) { e ->
-                        EntryRow(
-                            e,
-                            cats,
-                            onClick = {
-                                selected = if (e.id in valid) selected - e.id else selected + e.id
-                                feedback()
-                            },
-                            onLongClick = null,
-                            trailing = {
-                                Checkbox(
-                                    e.id in valid,
-                                    {
-                                        selected =
-                                            if (e.id in valid) selected - e.id else selected + e.id
-                                        feedback()
-                                    },
-                                    modifier = Modifier.testTag("bill-checkbox-${e.id}"),
-                                )
-                            },
+                TextButton(
+                    enabled = valid.isNotEmpty(),
+                    onClick = { export = true },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("导出")
+                }
+                TextButton(
+                    enabled = valid.isNotEmpty(),
+                    onClick = { deleting = true },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("删除")
+                }
+                TextButton(
+                    onClick = {
+                        choose(
+                            if (valid.size == rows.size) emptySet() else rows.map { it.id }.toSet()
                         )
-                    }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (valid.size == rows.size) "取消全选" else "全选")
                 }
             }
         }

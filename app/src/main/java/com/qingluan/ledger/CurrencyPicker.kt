@@ -36,9 +36,12 @@ fun CurrencyButton(code: String, change: (String) -> Unit) {
 fun CurrencyPicker(code: String, dismiss: () -> Unit, choose: (String) -> Unit) {
     val feedback = rememberAppFeedback()
     var query by remember { mutableStateOf("") }
+    val frequency = LocalCurrencyFrequency.current
     val list =
-        remember(query) {
-            Currencies.all.filter { it.code.contains(query, true) || it.name.contains(query, true) }
+        remember(query, frequency) {
+            currencyDisplayOrder(frequency).filter {
+                it.code.contains(query, true) || it.name.contains(query, true)
+            }
         }
     GlassAlertDialog(
         onDismissRequest = dismiss,
@@ -77,3 +80,33 @@ fun CurrencyPicker(code: String, dismiss: () -> Unit, choose: (String) -> Unit) 
         confirmButton = { TextButton(onClick = dismiss) { Text("取消") } },
     )
 }
+
+val LocalCurrencyFrequency = staticCompositionLocalOf<Map<String, Int>> { emptyMap() }
+private val commonCurrencyOrder =
+    listOf(
+        "CNY",
+        "USD",
+        "HKD",
+        "EUR",
+        "JPY",
+        "GBP",
+        "MOP",
+        "TWD",
+        "KRW",
+        "SGD",
+        "AUD",
+        "CAD",
+        "CHF",
+        "MYR",
+        "THB",
+        "RUB",
+    )
+
+fun currencyDisplayOrder(frequency: Map<String, Int>): List<CurrencyUnit> =
+    Currencies.all.sortedWith(
+        compareByDescending<CurrencyUnit> { frequency[it.code] ?: 0 }
+            .thenBy {
+                commonCurrencyOrder.indexOf(it.code).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
+            }
+            .thenBy { it.code }
+    )

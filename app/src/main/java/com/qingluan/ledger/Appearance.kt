@@ -24,16 +24,29 @@ val paletteNames =
         "oat" to "燕麦",
         "sakura" to "樱花",
     )
-val fontSizes = linkedMapOf("system" to "跟随系统", "small" to "小", "large" to "大", "extra" to "特大")
+val fontSizes =
+    linkedMapOf(
+        "system" to "跟随系统",
+        "small" to "小",
+        "large" to "大",
+        "extra" to "特大",
+        "custom" to "自定义",
+    )
 
 data class AppAppearance(
     val palette: String = "system",
     val pureBlack: Boolean = false,
     val fontSize: String = "system",
+    val customFontPercent: Int = 100,
 ) {
+    init {
+        require(customFontPercent in 75..160)
+    }
+
     val scale
         get() =
             when (fontSize) {
+                "custom" -> customFontPercent / 100f
                 "small" -> .9f
                 "large" -> 1.15f
                 "extra" -> 1.3f
@@ -152,3 +165,7 @@ fun appearanceTypography(appearance: AppAppearance): Typography {
         labelSmall = font(base.labelSmall),
     )
 }
+
+fun fontSizeLabel(style: AppAppearance) =
+    if (style.fontSize == "custom") "自定义 ${style.customFontPercent}%"
+    else fontSizes.getValue(style.fontSize)

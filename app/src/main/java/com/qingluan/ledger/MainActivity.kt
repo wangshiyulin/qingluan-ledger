@@ -6,8 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -31,7 +29,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.chrisbanes.haze.*
 import java.time.*
-import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(b: Bundle?) {
@@ -75,8 +72,19 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
         val cats by vm.categories.collectAsStateWithLifecycle()
         val message by vm.message.collectAsStateWithLifecycle()
         val effects by vm.effects.collectAsStateWithLifecycle()
+        val selecting by vm.multiSelecting.collectAsStateWithLifecycle()
         val experience by vm.experience.collectAsStateWithLifecycle()
         val nav = rememberNavController()
+        val navigationFocus = androidx.compose.ui.platform.LocalFocusManager.current
+        val navigationKeyboard =
+            androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+        fun openPage(page: String) {
+            if (nav.currentDestination?.route != page) {
+                navigationFocus.clearFocus()
+                navigationKeyboard?.hide()
+                nav.navigate(page) { launchSingleTop = true }
+            }
+        }
         val back by nav.currentBackStackEntryAsState()
         val route = back?.destination?.route ?: "明细"
         var editId by rememberSaveable { mutableLongStateOf(0L) }
@@ -115,6 +123,8 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                 if (effects.haptics) nativeHaptic else silentHaptic,
             LocalEffects provides effects,
             LocalExperience provides experience,
+            LocalCurrencyFrequency provides
+                remember(rows) { rows.groupingBy { it.currencyCode }.eachCount() },
             LocalAppearance provides appearance,
         ) {
             SideEffect { currentView.isHapticFeedbackEnabled = effects.haptics }
@@ -123,7 +133,7 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                 snackbarHost = { SnackbarHost(snack) },
                 containerColor = MaterialTheme.colorScheme.background,
                 floatingActionButton = {
-                    if (route !in secondaryPages)
+                    if (route !in secondaryPages && !selecting)
                         FloatingActionButton(
                             onClick = {
                                 feedback()
@@ -142,16 +152,19 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                 bottomBar = {
                     if (route !in secondaryPages)
                         LiquidNavigation(route, haze) { label ->
-                            if (label != nav.currentDestination?.route)
+                            if (label != nav.currentDestination?.route) {
+                                navigationFocus.clearFocus()
+                                navigationKeyboard?.hide()
                                 nav.navigate(label) {
                                     popUpTo(nav.graph.startDestinationId) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            }
                         }
                 },
             ) { padding ->
-                val floating = route in listOf("明细", "洞察", "设置")
+                val floating = route in listOf("明细", "洞察", "我的")
                 CompositionLocalProvider(
                     LocalFloatingBottomInset provides
                         if (floating) padding.calculateBottomPadding() else 0.dp
@@ -164,10 +177,10 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                         NavHost(
                             nav,
                             startDestination = "明细",
-                            enterTransition = { EnterTransition.None },
-                            exitTransition = { ExitTransition.None },
-                            popEnterTransition = { EnterTransition.None },
-                            popExitTransition = { ExitTransition.None },
+                            enterTransition = { pageEnter(effects.motion) },
+                            exitTransition = { pageExit(effects.motion) },
+                            popEnterTransition = { pageEnter(effects.motion, pop = true) },
+                            popExitTransition = { pageExit(effects.motion, pop = true) },
                             modifier =
                                 Modifier.fillMaxSize()
                                     .padding(
@@ -188,36 +201,47 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                                     ),
                         ) {
                             composable("明细") {
-                                Details(
-                                    rows,
-                                    cats,
-                                    onEdit = {
-                                        editId = it.id
-                                        entryState.removeState("entry")
-                                        sheetOpen = true
-                                    },
-                                    onDelete = { vm.deleteEntries(listOf(it)) },
-                                    vm = vm,
-                                )
-                            }
-                            composable("洞察") {
-                                Insights(rows, cats, persist = vm::experience) { d ->
-                                    initialDate = d
-                                    editId = 0L
-                                    entryState.removeState("entry")
-                                    sheetOpen = true
+                                RouteSurface(route == "明细") {
+                                    Details(
+                                        rows,
+                                        cats,
+                                        onEdit = {
+                                            editId = it.id
+                                            entryState.removeState("entry")
+                                            sheetOpen = true
+                                        },
+                                        onDelete = { vm.deleteEntries(listOf(it)) },
+                                        vm = vm,
+                                    )
                                 }
                             }
-                            composable("设置") { SettingsHome(vm, rows) { nav.navigate(it) } }
+                            composable("洞察") {
+                                RouteSurface(route == "洞察") {
+                                    Insights(rows, cats, persist = vm::experience) { d ->
+                                        initialDate = d
+                                        editId = 0L
+                                        entryState.removeState("entry")
+                                        sheetOpen = true
+                                    }
+                                }
+                            }
+                            composable("我的") {
+                                RouteSurface(route == "我的") { SettingsHome(vm, rows, ::openPage) }
+                            }
                             secondaryPages.forEach { page ->
                                 composable(page) {
-                                    Settings(
-                                        vm,
-                                        cats,
-                                        page,
-                                        back = { nav.popBackStack() },
-                                        open = { nav.navigate(it) },
-                                    )
+                                    RouteSurface(route == page) {
+                                        Settings(
+                                            vm,
+                                            cats,
+                                            page,
+                                            back = {
+                                                if (nav.currentDestination?.route == page)
+                                                    nav.popBackStack()
+                                            },
+                                            open = ::openPage,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -235,7 +259,7 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                             busy,
                             initialCurrency = "CNY",
                             onCancel = { sheetOpen = false },
-                            onManage = { nav.navigate("分类管理") },
+                            onManage = { openPage("分类管理") },
                             save = { e ->
                                 vm.save(e) {
                                     feedback()
@@ -364,20 +388,7 @@ fun EntryRow(
             }
             Column(Modifier.weight(1f)) {
                 Text(c?.name ?: "分类", style = MaterialTheme.typography.bodyMedium)
-                val subtitle =
-                    buildList {
-                            if (display.showNote && e.note.isNotBlank()) add(e.note)
-                            if (e.tags.isNotBlank()) add(e.tags)
-                            if (e.receipt.isNotBlank()) add("票据")
-                            if (display.showTime)
-                                add(
-                                    Instant.ofEpochMilli(e.occurredAt)
-                                        .atZone(ZoneId.systemDefault())
-                                        .toLocalTime()
-                                        .format(DateTimeFormatter.ofPattern("HH:mm"))
-                                )
-                        }
-                        .joinToString(" · ")
+                val subtitle = entrySubtitle(e, display)
                 if (subtitle.isNotBlank())
                     Text(
                         subtitle,
@@ -502,8 +513,18 @@ fun Details(
     onDelete: (Entry) -> Unit,
     vm: LedgerViewModel? = null,
 ) {
-    var multi by rememberSaveable { mutableStateOf<Long?>(null) }
-    var multiScope by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
+    var selectionMode by rememberSaveable { mutableStateOf(false) }
+    var selectedIds by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
+    fun leaveSelection() {
+        selectionMode = false
+        selectedIds = emptySet()
+    }
+    androidx.activity.compose.BackHandler(
+        enabled = selectionMode && LocalRouteActive.current,
+        onBack = ::leaveSelection,
+    )
+    DisposableEffect(Unit) { onDispose { vm?.multiSelecting?.value = false } }
+    LaunchedEffect(selectionMode) { vm?.multiSelecting?.value = selectionMode }
     var month by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var query by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("EXPENSE") }
@@ -553,70 +574,109 @@ fun Details(
                     visibleCount = minOf(visibleCount + 50, filtered.size)
             }
     }
-    LazyColumn(
-        Modifier.fillMaxSize()
-            .testTag("details-page")
-            .dismissSearchOnBlankTap(search, searchBounds, ::closeSearch),
-        state = listState,
-        contentPadding =
-            PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 8.dp,
-                bottom = LocalFloatingBottomInset.current + 88.dp,
-            ),
-    ) {
-        item {
-            HomeToolbar(
-                query,
-                { query = it },
-                search,
-                { search = true },
-                ::closeSearch,
-                { searchBounds = it },
-                { filter = true },
-            )
-        }
-        item {
-            MonthHeader(month, scoped) {
-                month = it
-                from = null
-                to = null
+    Column(Modifier.fillMaxSize()) {
+        if (selectionMode && vm != null)
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                BulkBillActions(
+                    vm,
+                    filtered.map { it.id }.toSet(),
+                    selectedIds,
+                    { selectedIds = it },
+                    ::leaveSelection,
+                )
             }
-        }
-        if (filtered.isEmpty()) item { Empty() }
-        var remaining = visibleCount
-        for ((day, dayEntries) in grouped) {
-            if (remaining <= 0) break
-            val list = dayEntries.take(remaining)
-            remaining -= list.size
+        LazyColumn(
+            Modifier.weight(1f)
+                .fillMaxWidth()
+                .testTag("details-page")
+                .dismissSearchOnBlankTap(search, searchBounds, ::closeSearch),
+            state = listState,
+            contentPadding =
+                PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 8.dp,
+                    bottom = LocalFloatingBottomInset.current + 88.dp,
+                ),
+        ) {
+            if (!selectionMode)
+                item {
+                    HomeToolbar(
+                        query,
+                        { query = it },
+                        search,
+                        { search = true },
+                        ::closeSearch,
+                        { searchBounds = it },
+                        { filter = true },
+                    )
+                }
             item {
-                Text(
-                    day.toString(),
-                    Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                MonthHeader(month, scoped) {
+                    month = it
+                    from = null
+                    to = null
+                }
             }
-            items(list, key = { it.id }) { e ->
-                SwipeEntryRow(
-                    e,
-                    cats,
-                    swipedId == e.id,
-                    { swipedId = if (it) e.id else null },
-                    { onEdit(e) },
-                    { deleting = e },
-                    longPress =
-                        if (vm != null)
-                            ({
-                                multiScope = filtered.map { it.id }.toSet()
-                                multi = e.id
-                            })
-                        else null,
-                )
+            if (filtered.isEmpty()) item { Empty() }
+            var remaining = visibleCount
+            for ((day, dayEntries) in grouped) {
+                if (remaining <= 0) break
+                val list = dayEntries.take(remaining)
+                remaining -= list.size
+                item {
+                    Text(
+                        day.toString(),
+                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+                items(list, key = { it.id }) { e ->
+                    if (selectionMode)
+                        EntryRow(
+                            e,
+                            cats,
+                            onClick = {
+                                selectedIds =
+                                    if (e.id in selectedIds) selectedIds - e.id
+                                    else selectedIds + e.id
+                            },
+                            onLongClick = null,
+                            trailing = {
+                                Checkbox(
+                                    e.id in selectedIds,
+                                    {
+                                        selectedIds =
+                                            if (e.id in selectedIds) selectedIds - e.id
+                                            else selectedIds + e.id
+                                    },
+                                    modifier = Modifier.testTag("bill-checkbox-${e.id}"),
+                                )
+                            },
+                        )
+                    else
+                        SwipeEntryRow(
+                            e,
+                            cats,
+                            swipedId == e.id,
+                            { swipedId = if (it) e.id else null },
+                            { onEdit(e) },
+                            { deleting = e },
+                            longPress =
+                                if (vm != null)
+                                    ({
+                                        selectionMode = true
+                                        selectedIds = setOf(e.id)
+                                        swipedId = null
+                                        focusManager.clearFocus()
+                                        keyboard?.hide()
+                                    })
+                                else null,
+                        )
+                }
             }
         }
     }
-    multi?.let { id -> if (vm != null) BulkBills(vm, multiScope, id) { multi = null } }
     if (filter)
         GlassAlertDialog(
             onDismissRequest = { filter = false },

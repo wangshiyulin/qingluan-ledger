@@ -179,6 +179,8 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                     AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                 }
                 "更新日志" -> {
+                    Changelog("1.0.3", "自定义字号、独立分类迁移；时间先于备注；新增可关闭的水平转场与退出页面交互保护。")
+                    Changelog("1.0.2", "明细原位多选、按记账天数计算平均值、编辑金额直接替换、常用币种前置；新增同步方案，优化兼容图标和系统能力回退。")
                     Changelog("1.0.1", "统一返回按钮位置；简化票据选择与设置入口；调整本地数据卡片；配置官方网站。")
                     Changelog("1.0.0", "初始版本。")
                 }

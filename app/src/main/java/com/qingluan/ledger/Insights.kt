@@ -190,7 +190,7 @@ fun Insights(
                                 style = MaterialTheme.typography.labelMedium,
                             )
                             Text(
-                                "${currencyPrefix(currency)} ${displayMoney(dailyMean(total,if(unit=="year")if(date.year==today.year)today.monthValue.toLong()else 12L else if(unit=="all")typed.size.toLong()else elapsed),currency)}",
+                                "${currencyPrefix(currency)} ${displayMoney(if(unit=="all")recordedDayMean(total,currencyRows)else dailyMean(total,if(unit=="year")if(date.year==today.year)today.monthValue.toLong()else 12L else elapsed),currency)}",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                         }

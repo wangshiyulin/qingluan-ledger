@@ -130,4 +130,5 @@ fun ExperienceControls(vm: LedgerViewModel, page: String) {
     }
 }
 
-val secondaryPages = listOf("分类管理", "个性化", "本地数据", "操作反馈", "列表显示", "统计偏好", "数据保护") + aboutPages
+val secondaryPages =
+    listOf("分类管理", "个性化", "本地数据", "操作反馈", "列表显示", "统计偏好", "数据保护", "同步") + aboutPages

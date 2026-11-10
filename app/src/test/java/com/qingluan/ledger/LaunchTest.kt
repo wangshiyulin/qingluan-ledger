@@ -57,7 +57,7 @@ class LaunchTest {
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("洞察").performClick()
         compose.onNodeWithText("每一笔，都有迹可循").assertDoesNotExist()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("浅色模式").assertDoesNotExist()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("外观模式").performClick()
@@ -112,7 +112,7 @@ class LaunchTest {
 
     @Test
     fun categoryGridDragPersistsAndMenuOpens() {
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("分类管理").performClick()
         compose.waitUntil(5000) {
             compose.onAllNodesWithContentDescription("餐饮").fetchSemanticsNodes().isNotEmpty()
@@ -147,7 +147,7 @@ class LaunchTest {
         val b = compose.onNodeWithText("购物").fetchSemanticsNode().boundsInRoot
         assert(kotlin.math.abs(a.top - b.top) < 4f)
         compose.onNodeWithText("重置").performClick()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("分类管理").performClick()
         compose.waitUntil(5000) {
             compose.onAllNodesWithContentDescription("餐饮").fetchSemanticsNodes().isNotEmpty()
@@ -164,12 +164,12 @@ class LaunchTest {
     fun immediateNavigationFabAndThemedDates() {
         compose.onNodeWithText("记账").assertDoesNotExist()
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithText("设置").performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.onNodeWithText("我的").performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.onNodeWithText("明细").performSemanticsAction(SemanticsActions.OnClick) { it() }
         compose.mainClock.advanceTimeBy(64)
         compose.onNodeWithText("青鸾记账").assertExists()
         compose.onNodeWithText("分类管理").assertDoesNotExist()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.mainClock.advanceTimeBy(64)
         compose.onNodeWithText("分类管理").assertExists()
         compose.onNodeWithText("洞察").performClick()
@@ -179,7 +179,7 @@ class LaunchTest {
         compose.mainClock.autoAdvance = true
 
         repeat(3) {
-            compose.onNodeWithText("设置").performClick()
+            compose.onNodeWithText("我的").performClick()
             compose.onNodeWithText("分类管理").assertExists()
             compose.onNodeWithText("洞察").performClick()
             compose.onNodeWithText("总支出").assertExists()
@@ -214,7 +214,7 @@ class LaunchTest {
         compose.onNodeWithTag("year-grid").assertExists()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("更多", useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("灵动效果").performClick()
         waitForOff("灵动效果")
@@ -276,7 +276,7 @@ class LaunchTest {
             compose.onAllNodesWithText("USD −2.00").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("入 0.00 · 出 1.00").assertDoesNotExist()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("天数").assertExists()
         compose.onNodeWithText("笔数").assertExists()
         compose.onNodeWithTag("profile-avatar").performClick()
@@ -309,7 +309,7 @@ class LaunchTest {
         assert(kotlin.math.abs(a.top - b.top) < 4f)
         assert(a.height < 55f)
         compose.onNodeWithText("取消").performClick()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("小青").assertExists()
     }
 
@@ -345,7 +345,7 @@ class LaunchTest {
         compose.waitUntil(5000) {
             compose.onAllNodesWithText("暂无账单").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("外观设置").assertDoesNotExist()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("外观模式").performClick()
@@ -365,7 +365,7 @@ class LaunchTest {
     @Test
     @Config(sdk = [36])
     fun freeDragAcrossRowsAndExpandedIcons() {
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("分类管理").performClick()
         compose.waitUntil(5000) {
             compose.onAllNodesWithContentDescription("旅行").fetchSemanticsNodes().isNotEmpty()
@@ -542,7 +542,7 @@ class LaunchTest {
         compose
             .onNode(hasText("200.00") and hasAnyAncestor(hasTestTag("insight-calendar-CNY")))
             .assertExists()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("本地数据").performScrollTo().performClick()
         compose.onNodeWithText("导出").assertExists()
         compose.onNodeWithText("导入").assertExists()
@@ -553,7 +553,7 @@ class LaunchTest {
     @Test
     @Config(sdk = [36])
     fun fontThemeExportAndProgressiveRows() {
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("字体").performClick()
         compose.onNode(hasText("大") and isSelectable()).performClick()
@@ -613,7 +613,7 @@ class LaunchTest {
             compose.onNodeWithContentDescription("记账").fetchSemanticsNode().boundsInRoot.width >=
                 64f
         )
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("液态材质").assertDoesNotExist()
         compose.onNodeWithText("字体").performClick()
@@ -661,7 +661,7 @@ class LaunchTest {
         compose.onNodeWithText("收入分类").assertExists()
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("支出分类"))
         compose.onNodeWithText("支出分类").assertExists()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("主题").performClick()
         compose.onNode(hasText("默认") and isSelectable()).assertExists()
@@ -695,7 +695,7 @@ class LaunchTest {
         }
         compose.onNode(hasText("多选测试", substring = true)).performTouchInput { longClick() }
         compose.onNodeWithText("已选 1 笔").assertExists()
-        compose.onNodeWithText("导出所选").performClick()
+        compose.onNodeWithText("导出").performClick()
         compose.onNodeWithText("导出所选账单").assertExists()
         compose.onNodeWithText("选择保存位置").assertExists()
         compose.onNodeWithText("文件格式").performClick()
@@ -703,7 +703,7 @@ class LaunchTest {
         compose.onNodeWithText("备注列").performScrollTo().assertExists()
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithContentDescription("退出多选").performClick()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithTag("profile-avatar").performClick()
         compose.onNodeWithContentDescription("重置个人资料").assertExists()
         compose.onNodeWithText("取消").performClick()
@@ -727,7 +727,7 @@ class LaunchTest {
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("洞察").performClick()
         compose.onNodeWithText("总结余").assertExists()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("本地数据").performScrollTo().performClick()
         compose.onNodeWithText("导出").performClick()
         compose.onNodeWithText("范围").performClick()
@@ -775,7 +775,7 @@ class LaunchTest {
         assert(check.left > after.center.x && check.right <= after.right)
         compose.onNodeWithTag("bill-checkbox-$id").assertIsOn().performClick().assertIsOff()
         compose.onNodeWithContentDescription("退出多选").performClick()
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         listOf("列表显示").forEach { compose.onNodeWithText(it).performScrollTo().assertExists() }
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         listOf("常用备注", "列表显示").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
@@ -822,16 +822,23 @@ class LaunchTest {
             vm.categories.value.isNotEmpty()
         }
         val category = vm.categories.value.first { it.type == "EXPENSE" }.name
-        compose.onNodeWithText("设置").performClick()
+        compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("常用备注").assertDoesNotExist()
         compose.onNodeWithText("分类管理").performScrollTo().performClick()
         val baseline = compose.onNodeWithTag("page-back").fetchSemanticsNode().boundsInRoot
         compose.onNodeWithContentDescription("返回").performClick()
         listOf("个性化", "列表显示", "本地数据", "关于").forEach { page ->
             compose.onNodeWithText(page).performScrollTo()
-            val target=compose.onNodeWithText(page).fetchSemanticsNode().boundsInRoot
-            val safeBottom=compose.activity.resources.displayMetrics.heightPixels-150f*compose.activity.resources.displayMetrics.density
-            if(target.bottom>safeBottom) compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy){it(0f,target.bottom-safeBottom)}
+            val target = compose.onNodeWithText(page).fetchSemanticsNode().boundsInRoot
+            val safeBottom =
+                compose.activity.resources.displayMetrics.heightPixels -
+                    150f * compose.activity.resources.displayMetrics.density
+            if (target.bottom > safeBottom)
+                compose.onNode(hasScrollAction()).performSemanticsAction(
+                    SemanticsActions.ScrollBy
+                ) {
+                    it(0f, target.bottom - safeBottom)
+                }
             compose.onNodeWithText(page).performClick()
             val bounds = compose.onNodeWithTag("page-back").fetchSemanticsNode().boundsInRoot
             assert(
@@ -865,6 +872,101 @@ class LaunchTest {
                 )
         )
         assert(AboutLinks.website == "https://ledger.qingluanx.com")
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun inlineSelectionReplaceAmountAndSyncProposal() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.categories.value.isNotEmpty()
+        }
+        val cat = vm.categories.value.first { it.type == "EXPENSE" }.id
+        kotlinx.coroutines.runBlocking {
+            vm.repository.save(Entry(amount = 123456, categoryId = cat, note = "待编辑"))
+            vm.repository.save(Entry(amount = 200, categoryId = cat, note = "另一笔"))
+        }
+        compose.waitUntil(5000) {
+            compose.onAllNodes(hasText("待编辑", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNode(hasText("待编辑", substring = true)).performTouchInput { longClick() }
+        compose.onAllNodes(isDialog()).assertCountEquals(0)
+        listOf("编辑", "导出", "删除", "全选").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("全选").performClick()
+        compose.onNodeWithText("已选 2 笔").assertExists()
+        compose.onNodeWithContentDescription("退出多选").performClick()
+        compose.onNode(hasText("待编辑", substring = true)).performClick()
+        compose.onNodeWithTag("entry-amount").assertTextEquals("1234.56")
+        compose.onNodeWithText("7").performClick()
+        compose.onNodeWithTag("entry-amount").assertTextEquals("7")
+        assert(
+            kotlinx.coroutines.runBlocking {
+                vm.repository.dao.allEntries().first { it.note == "待编辑" }.amount
+            } == 123456L
+        )
+        compose.onNodeWithText("取消").performClick()
+        compose.onNode(hasText("待编辑", substring = true)).performClick()
+        compose.onNodeWithTag("entry-amount").assertTextEquals("1234.56")
+        compose.onNodeWithText("8").performClick()
+        compose.onNodeWithText("完成").performClick()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.entries.value.any { it.note == "待编辑" && it.amount == 800L }
+        }
+        compose.onNodeWithText("我的").performClick()
+        compose.onNodeWithText("同步").performScrollTo()
+        val bottom = compose.onNodeWithText("同步").fetchSemanticsNode().boundsInRoot.bottom
+        val safe =
+            compose.activity.resources.displayMetrics.heightPixels -
+                150f * compose.activity.resources.displayMetrics.density
+        if (bottom > safe)
+            compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, bottom - safe)
+            }
+        compose.onNodeWithText("同步").performClick()
+        compose.onNodeWithText("WebDAV 备份同步").assertExists()
+        compose.onNodeWithText("本版本仅展示方案，不连接服务器，不上传或下载账单。").performScrollTo().assertExists()
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun customFontsMigrationEntryAndPageMotion() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.categories.value.isNotEmpty()
+        }
+        compose.onNodeWithText("我的").performClick()
+        compose.onNodeWithText("个性化").performScrollTo().performClick()
+        compose.onNodeWithText("字体").performClick()
+        compose.onNode(hasText("自定义") and isSelectable()).performScrollTo().performClick()
+        compose.onNodeWithTag("font-custom-percent").performScrollTo().performTextReplacement("125")
+        compose.onNodeWithText("应用").performClick()
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("字体").fetchSemanticsNodes()
+            vm.appearance.value.fontSize == "custom" && vm.appearance.value.customFontPercent == 125
+        }
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("分类管理").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("分类迁移").performClick()
+        compose.onNodeWithText("来源分类").assertExists()
+        compose.onNodeWithText("目标分类").assertExists()
+        compose.onNodeWithText("只迁移账单，保留来源和目标分类。").assertExists()
+        compose.onAllNodesWithText("取消").onLast().performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("明细").assertExists()
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText("明细").performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithText("洞察").performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithText("我的").performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.mainClock.advanceTimeBy(400)
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithText("分类管理").performScrollTo().assertExists()
+        compose.onNodeWithText("暂无账单").assertDoesNotExist()
     }
 
     private fun waitForOff(label: String) {

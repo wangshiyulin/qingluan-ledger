@@ -40,6 +40,7 @@ object CompleteBackup {
                 .put("palette", a.palette)
                 .put("pureBlack", a.pureBlack)
                 .put("fontSize", a.fontSize)
+                .put("customFontPercent", a.customFontPercent)
                 .put("motion", personal.effects.motion)
                 .put("haptics", personal.effects.haptics)
                 .put("experience", personal.experience.json())
@@ -50,7 +51,7 @@ object CompleteBackup {
                 )
         val raw =
             JSONObject(Backup.encode(categories, entries))
-                .put("formatVersion", 5)
+                .put("formatVersion", 6)
                 .put("personal", p)
                 .toString()
         require(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "完整备份超过16MB限制" }
@@ -62,7 +63,7 @@ object CompleteBackup {
         val j = JSONObject(raw)
         val version = j.get("formatVersion")
         require(
-            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..5L
+            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..6L
         ) {
             "不支持的备份版本"
         }
@@ -77,6 +78,17 @@ object CompleteBackup {
         val theme = p.getString("theme")
         val palette = p.getString("palette")
         val fontSize = p.getString("fontSize")
+        val customFontPercent =
+            if (p.has("customFontPercent")) {
+                val value = p.get("customFontPercent")
+                require(value is Number) { "自定义字号无效" }
+                java.math.BigDecimal(value.toString()).intValueExact().also {
+                    require(it in 75..160) { "自定义字号超出范围" }
+                }
+            } else {
+                require(j.getLong("formatVersion") < 6) { "自定义字号字段缺失" }
+                100
+            }
         require(
             nickname.length <= 24 &&
                 theme in listOf("system", "light", "dark") &&
@@ -106,7 +118,7 @@ object CompleteBackup {
             PersonalBackup(
                 nickname,
                 theme,
-                AppAppearance(palette, p.getBoolean("pureBlack"), fontSize),
+                AppAppearance(palette, p.getBoolean("pureBlack"), fontSize, customFontPercent),
                 UiEffects(p.getBoolean("motion"), p.getBoolean("haptics")),
                 avatar,
                 Experience.decode(p.optJSONObject("experience") ?: JSONObject()),
@@ -153,6 +165,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                     prefs[stringPreferencesKey("palette")] ?: "system",
                     prefs[booleanPreferencesKey("pureBlack")] ?: false,
                     prefs[stringPreferencesKey("fontSize")] ?: "system",
+                    (prefs[intPreferencesKey("customFontPercent")] ?: 100).coerceIn(75, 160),
                 ),
                 UiEffects(
                     prefs[booleanPreferencesKey("motion")] ?: true,
@@ -244,6 +257,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                     prefs[stringPreferencesKey("palette")] = p.appearance.palette
                     prefs[booleanPreferencesKey("pureBlack")] = p.appearance.pureBlack
                     prefs[stringPreferencesKey("fontSize")] = p.appearance.fontSize
+                    prefs[intPreferencesKey("customFontPercent")] = p.appearance.customFontPercent
                     prefs.remove(stringPreferencesKey("fontFamily"))
                     prefs[booleanPreferencesKey("motion")] = p.effects.motion
                     prefs[booleanPreferencesKey("haptics")] = p.effects.haptics

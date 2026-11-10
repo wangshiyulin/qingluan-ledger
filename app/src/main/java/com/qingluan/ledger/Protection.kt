@@ -29,43 +29,53 @@ fun rememberAuthenticate(result: (Boolean) -> Unit): () -> Unit {
         }
     var signal by remember { mutableStateOf<android.os.CancellationSignal?>(null) }
     DisposableEffect(Unit) { onDispose { signal?.cancel() } }
+    fun credential() {
+        try {
+            val keyguard = context.getSystemService(KeyguardManager::class.java)
+            @Suppress("DEPRECATION")
+            val intent = keyguard?.createConfirmDeviceCredentialIntent("青鸾记账", "验证后继续")
+            if (intent != null) fallback.launch(intent) else callback(false)
+        } catch (_: Exception) {
+            callback(false)
+        }
+    }
     return {
         val manager = context.getSystemService(KeyguardManager::class.java)
-        if (!manager.isDeviceSecure) callback(false)
+        if (manager?.isDeviceSecure != true) callback(false)
         else if (Build.VERSION.SDK_INT >= 30) {
             signal?.cancel()
             val current = android.os.CancellationSignal()
             signal = current
-            val prompt =
-                android.hardware.biometrics.BiometricPrompt.Builder(context)
-                    .setTitle("验证青鸾记账身份")
-                    .setAllowedAuthenticators(
-                        android.hardware.biometrics.BiometricManager.Authenticators
-                            .BIOMETRIC_STRONG or
+            try {
+                val prompt =
+                    android.hardware.biometrics.BiometricPrompt.Builder(context)
+                        .setTitle("验证青鸾记账身份")
+                        .setAllowedAuthenticators(
                             android.hardware.biometrics.BiometricManager.Authenticators
-                                .DEVICE_CREDENTIAL
-                    )
-                    .build()
-            prompt.authenticate(
-                current,
-                context.mainExecutor,
-                object : android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(
-                        result: android.hardware.biometrics.BiometricPrompt.AuthenticationResult
-                    ) {
-                        callback(true)
-                    }
+                                .BIOMETRIC_STRONG or
+                                android.hardware.biometrics.BiometricManager.Authenticators
+                                    .DEVICE_CREDENTIAL
+                        )
+                        .build()
+                prompt.authenticate(
+                    current,
+                    context.mainExecutor,
+                    object : android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(
+                            result: android.hardware.biometrics.BiometricPrompt.AuthenticationResult
+                        ) {
+                            callback(true)
+                        }
 
-                    override fun onAuthenticationError(code: Int, message: CharSequence) {
-                        callback(false)
-                    }
-                },
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            val intent = manager.createConfirmDeviceCredentialIntent("青鸾记账", "验证后继续")
-            if (intent != null) fallback.launch(intent) else callback(false)
-        }
+                        override fun onAuthenticationError(code: Int, message: CharSequence) {
+                            if (code in setOf(1, 11, 12, 15)) credential() else callback(false)
+                        }
+                    },
+                )
+            } catch (_: Exception) {
+                credential()
+            }
+        } else credential()
     }
 }
 
