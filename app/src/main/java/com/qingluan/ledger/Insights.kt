@@ -23,6 +23,19 @@ import java.time.*
 
 val insightTypeNames = linkedMapOf("EXPENSE" to "支出", "INCOME" to "收入", "BALANCE" to "结余")
 
+private data class InsightRanking(
+    val type: String,
+    val total: Long,
+    val values: List<Pair<Long, Long>>,
+)
+
+private data class InsightSummary(
+    val rows: List<Entry>,
+    val total: Long,
+    val points: List<Pair<LocalDate, Long>>,
+    val rankings: List<InsightRanking>,
+)
+
 @Composable
 fun Insights(
     rows: List<Entry>,
@@ -52,18 +65,51 @@ fun Insights(
     var typeMenu by remember { mutableStateOf(false) }
     var more by remember { mutableStateOf(false) }
     var dateOpen by remember { mutableStateOf(false) }
+    val zone = ZoneId.systemDefault()
+    val categoryIndex = remember(cats) { cats.associateBy { it.id } }
     val range =
-        when (unit) {
-            "all" ->
-                if (rows.isEmpty()) DateSpan.month(date)
-                else DateSpan(rows.minOf { it.date() }, rows.maxOf { it.date() }.plusDays(1))
-            "year" -> DateSpan.year(date)
-            else -> DateSpan.month(date)
+        remember(rows, date, unit, zone) {
+            when (unit) {
+                "all" ->
+                    if (rows.isEmpty()) DateSpan.month(date)
+                    else DateSpan(rows.minOf { it.date() }, rows.maxOf { it.date() }.plusDays(1))
+                "year" -> DateSpan.year(date)
+                else -> DateSpan.month(date)
+            }
         }
     val current = remember(rows, range) { rows.filter { range.contains(it) } }
     val groupedRows = remember(rows) { currencyGroups(rows) }
     val groupedCurrent = remember(current) { current.groupBy { it.currencyCode } }
     val today = LocalDate.now()
+    val summaries =
+        remember(groupedCurrent, range, today, type, zone) {
+            groupedCurrent.mapValues { (_, periodRows) ->
+                val typed = periodRows.filter { type == "BALANCE" || it.type == type }
+                val rankings =
+                    (if (type == "BALANCE") listOf("INCOME", "EXPENSE") else listOf(type)).map {
+                        rankType ->
+                        val ranked =
+                            typed
+                                .asSequence()
+                                .filter { it.type == rankType }
+                                .groupingBy { it.categoryId }
+                                .fold(0L) { sum, row -> sum + row.amount }
+                                .toList()
+                                .sortedByDescending { it.second }
+                        InsightRanking(rankType, ranked.sumOf { it.second }, ranked)
+                    }
+                InsightSummary(
+                    typed,
+                    if (type == "BALANCE") totals(typed).balance else typed.sumOf { it.amount },
+                    trendBuckets(
+                        typed,
+                        visibleTrendSpan(range, today),
+                        balance = type == "BALANCE",
+                    ),
+                    rankings,
+                )
+            }
+        }
     val elapsed =
         if (!today.isBefore(range.start) && today < range.end)
             java.time.temporal.ChronoUnit.DAYS.between(range.start, today) + 1
@@ -161,11 +207,10 @@ fun Insights(
             }
         }
         groupedRows.forEach { (currency, currencyRows) ->
-            val periodRows = groupedCurrent[currency].orEmpty()
-            val typed = periodRows.filter { type == "BALANCE" || it.type == type }
-            val total = if (type == "BALANCE") totals(typed).balance else typed.sumOf { it.amount }
-            val points =
-                trendBuckets(typed, visibleTrendSpan(range, today), balance = type == "BALANCE")
+            val summary = summaries[currency]
+            val typed = summary?.rows.orEmpty()
+            val total = summary?.total ?: 0L
+            val points = summary?.points.orEmpty()
             currencyItem(currency) {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -208,7 +253,7 @@ fun Insights(
                             points,
                             animationSpec =
                                 androidx.compose.animation.core.tween(
-                                    if (effects.motion) 100 else 0
+                                    if (motionAllowed(effects)) 100 else 0
                                 ),
                             label = "趋势切换",
                         ) { series ->
@@ -225,15 +270,10 @@ fun Insights(
                         }
                     }
                 }
-                val rankTypes = if (type == "BALANCE") listOf("INCOME", "EXPENSE") else listOf(type)
-                rankTypes.forEach { rankType ->
-                    val rankRows = typed.filter { it.type == rankType }
-                    val rankTotal = rankRows.sumOf { it.amount }
-                    val ranked =
-                        rankRows
-                            .groupBy { it.categoryId }
-                            .map { (id, list) -> id to list.sumOf { it.amount } }
-                            .sortedByDescending { it.second }
+                summary?.rankings.orEmpty().forEach { ranking ->
+                    val rankType = ranking.type
+                    val rankTotal = ranking.total
+                    val ranked = ranking.values
                     if (ranked.isNotEmpty()) {
                         currencyItem(currency) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -260,20 +300,16 @@ fun Insights(
                             if (pie)
                                 Pie(
                                     ranked.map { it.second },
-                                    ranked.map { id ->
-                                        cats.find { it.id == id.first }?.name ?: "分类"
-                                    },
+                                    ranked.map { id -> categoryIndex[id.first]?.name ?: "分类" },
                                 ) { index ->
                                     detail =
-                                        cats
-                                            .find { it.id == ranked[index].first }
-                                            ?.let { it to currency }
+                                        categoryIndex[ranked[index].first]?.let { it to currency }
                                 }
                         }
                         if (!pie)
                             ranked.forEach { (id, value) ->
                                 currencyItem(currency) {
-                                    val c = cats.find { it.id == id }
+                                    val c = categoryIndex[id]
                                     Surface(
                                         onClick = { detail = c?.let { it to currency } },
                                         shape = RoundedCornerShape(12.dp),
@@ -300,7 +336,13 @@ fun Insights(
                                                         c?.name ?: "分类",
                                                         Modifier.weight(1f),
                                                         style = MaterialTheme.typography.bodyMedium,
+                                                        maxLines = 1,
+                                                        overflow =
+                                                            androidx.compose.ui.text.style
+                                                                .TextOverflow
+                                                                .Ellipsis,
                                                     )
+                                                    Spacer(Modifier.width(8.dp))
                                                     Text(
                                                         displayMoney(value, currency),
                                                         style = MaterialTheme.typography.titleSmall,
@@ -497,10 +539,41 @@ fun Trend(values: List<Long>, labels: List<String> = values.indices.map { (it + 
     val color = MaterialTheme.colorScheme.primary
     val foreground = MaterialTheme.colorScheme.onSurfaceVariant
     val hideAmounts = LocalExperience.current.hideAmounts
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val paint =
+        remember(foreground, appearance.scale, density) {
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                this.color = foreground.toArgb()
+                textSize = with(density) { 10.sp.toPx() } * appearance.scale
+                typeface = android.graphics.Typeface.DEFAULT
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+        }
+    val bounds =
+        remember(values) {
+            maxOf(0.0, values.maxOrNull()?.toDouble() ?: 0.0) to
+                minOf(0.0, values.minOrNull()?.toDouble() ?: 0.0)
+        }
+    val mean =
+        remember(values) {
+            if (values.isEmpty()) 0.0 else values.sumOf { it.toDouble() } / values.size
+        }
+    val selected =
+        remember(values) {
+            if (values.size <= 10) values.indices.toList()
+            else
+                ((0 until 6).map { it * (values.size - 1) / 5 } +
+                        values.indices.maxBy { values[it] })
+                    .distinct()
+        }
+    val ticks =
+        remember(values.size) {
+            if (values.size <= 10) values.indices.toList()
+            else values.indices.filter { it % kotlin.math.ceil(values.size / 6.0).toInt() == 0 }
+        }
     Canvas(Modifier.fillMaxWidth().height(220.dp).padding(horizontal = 12.dp, vertical = 16.dp)) {
         if (values.isNotEmpty()) {
-            val max = maxOf(0.0, values.maxOrNull()?.toDouble() ?: 0.0)
-            val min = minOf(0.0, values.minOrNull()?.toDouble() ?: 0.0)
+            val (max, min) = bounds
             val extent = (max - min).coerceAtLeast(1.0)
             fun fraction(value: Double) = ((value - min) / extent).toFloat()
             val top = 20.dp.toPx()
@@ -519,7 +592,6 @@ fun Trend(values: List<Long>, labels: List<String> = values.indices.map { (it + 
                 Offset(size.width - inset, bottom - plot * fraction(0.0)),
                 1.dp.toPx(),
             )
-            val mean = values.map { it.toDouble() }.average()
             val avgY = bottom - plot * fraction(mean)
             drawLine(
                 color.copy(alpha = .25f),
@@ -528,37 +600,21 @@ fun Trend(values: List<Long>, labels: List<String> = values.indices.map { (it + 
                 1.dp.toPx(),
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)),
             )
-            values.indices.zipWithNext().forEach { (a, b) ->
-                drawLine(color, point(a), point(b), 2.dp.toPx(), StrokeCap.Round)
+            for (i in 1 until values.size) {
+                drawLine(color, point(i - 1), point(i), 2.dp.toPx(), StrokeCap.Round)
             }
-            val paint =
-                android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                    this.color = foreground.toArgb()
-                    textSize = 10.sp.toPx() * appearance.scale
-                    typeface = android.graphics.Typeface.DEFAULT
-                }
-            val selected =
-                if (values.size <= 10) values.indices.toSet()
-                else
-                    ((0 until 6).map { it * (values.size - 1) / 5 } +
-                            values.indices.maxBy { values[it] })
-                        .toSet()
             selected.forEach { i ->
                 val p = point(i)
                 drawCircle(color, 3.dp.toPx(), p)
+                val label = visibleMoney(values[i], currency, hideAmounts)
+                val half = (paint.measureText(label) / 2 + 2.dp.toPx()).coerceAtMost(size.width / 2)
                 drawContext.canvas.nativeCanvas.drawText(
-                    visibleMoney(values[i], currency, hideAmounts),
-                    p.x.coerceIn(
-                        22.dp.toPx(),
-                        (size.width - 22.dp.toPx()).coerceAtLeast(22.dp.toPx()),
-                    ),
+                    label,
+                    p.x.coerceIn(half, size.width - half),
                     p.y - 8.dp.toPx(),
                     paint,
                 )
             }
-            val ticks =
-                if (values.size <= 10) values.indices.toList()
-                else values.indices.filter { it % kotlin.math.ceil(values.size / 6.0).toInt() == 0 }
             ticks.forEach { index ->
                 // Tick slots are evenly spaced; sample indices match the nearest plotted date.
                 val x = point(index).x

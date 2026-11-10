@@ -45,7 +45,7 @@ class CurrencyMigrationTest {
                 "INSERT INTO transactions (type, amount, categoryId, occurredAt, note, createdAt, updatedAt) VALUES('EXPENSE', 456, 1, 2000, '', 2000, 2000)"
             )
             assertTrue(repo.dao.allEntries().all { it.currencyCode == "CNY" })
-            assertEquals(3, repo.db.openHelper.writableDatabase.version)
+            assertEquals(4, repo.db.openHelper.writableDatabase.version)
         } finally {
             repo.db.close()
             context.deleteDatabase(name)

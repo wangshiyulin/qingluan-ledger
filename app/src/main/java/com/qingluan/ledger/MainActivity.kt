@@ -23,55 +23,83 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import dev.chrisbanes.haze.*
 import java.time.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val pendingQuickEntry = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
     private var launchReady by mutableStateOf(false)
     private var launchMotion by mutableStateOf(true)
     private var launchAnimation: android.animation.Animator? = null
-    private var launchDrawListener: android.view.ViewTreeObserver.OnPreDrawListener? = null
+    private var pendingSplashExit: (() -> Unit)? = null
+    private var pendingSplashRemove: (() -> Unit)? = null
+    private var appliedShortcutState: Boolean? = null
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
+        pendingQuickEntry.value = null
         enableEdgeToEdge()
         val coldStart = b == null
         if (Build.VERSION.SDK_INT >= 31) {
-            val root = window.decorView
-            launchDrawListener =
-                object : android.view.ViewTreeObserver.OnPreDrawListener {
-                    override fun onPreDraw(): Boolean {
-                        if (!launchReady) return false
-                        root.viewTreeObserver.removeOnPreDrawListener(this)
-                        launchDrawListener = null
-                        return true
-                    }
-                }
-            root.viewTreeObserver.addOnPreDrawListener(launchDrawListener)
             splashScreen.setOnExitAnimationListener { splash ->
-                launchAnimation =
-                    animateStartupExit(splash, launchMotion) {
-                        splash.remove()
-                        launchAnimation = null
-                    }
+                pendingSplashRemove = {
+                    runCatching { splash.remove() }
+                    Unit
+                }
+                val exit: () -> Unit = {
+                    launchAnimation =
+                        animateStartupExit(splash, launchMotion) {
+                            runCatching { splash.remove() }
+                            launchAnimation = null
+                            pendingSplashRemove = null
+                        }
+                }
+                if (launchReady) exit() else pendingSplashExit = exit
             }
         }
         setContent {
             val screen: @Composable () -> Unit = {
                 SecurityGate(
                     onReady = { prefs ->
+                        val shortcutEnabled = prefs[DesktopEntry.enabledKey] ?: false
+                        if (appliedShortcutState == null && shortcutEnabled)
+                            pendingQuickEntry.value = DesktopEntry.parse(intent)
+                        if (!shortcutEnabled) pendingQuickEntry.value = null
+                        if (appliedShortcutState != shortcutEnabled) {
+                            appliedShortcutState = shortcutEnabled
+                            runCatching {
+                                DesktopEntry.configure(this@MainActivity, shortcutEnabled)
+                            }
+                        }
                         launchMotion =
                             prefs[
                                 androidx.datastore.preferences.core.booleanPreferencesKey("motion")]
                                 ?: true
                         launchReady = true
+                        pendingSplashExit?.let { exit ->
+                            pendingSplashExit = null
+                            exit()
+                        }
                     }
                 ) {
-                    LedgerApp()
+                    val quickType by pendingQuickEntry.collectAsStateWithLifecycle()
+                    LedgerApp(
+                        quickType = quickType,
+                        consumeQuickEntry = {
+                            pendingQuickEntry.value = null
+                            intent.action = android.content.Intent.ACTION_MAIN
+                        },
+                    )
                 }
             }
             if (coldStart && Build.VERSION.SDK_INT < 31)
@@ -80,12 +108,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        lifecycleScope.launch {
+            val enabled = preferences.data.first()[DesktopEntry.enabledKey] ?: false
+            pendingQuickEntry.value = if (enabled) DesktopEntry.parse(intent) else null
+        }
+    }
+
     override fun onDestroy() {
-        launchDrawListener?.let { window.decorView.viewTreeObserver.removeOnPreDrawListener(it) }
-        launchDrawListener = null
-        launchAnimation?.cancel()
-        launchAnimation = null
-        super.onDestroy()
+        try {
+            pendingSplashExit = null
+            runCatching { launchAnimation?.cancel() }
+            runCatching { pendingSplashRemove?.invoke() }
+        } finally {
+            launchAnimation = null
+            pendingSplashRemove = null
+            super.onDestroy()
+        }
     }
 }
 
@@ -101,11 +142,24 @@ fun icon(k: String): ImageVector = CategoryIcons.vector(k)
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun LedgerApp(vm: LedgerViewModel = viewModel()) {
+fun LedgerApp(
+    vm: LedgerViewModel = viewModel(),
+    quickType: String? = null,
+    consumeQuickEntry: () -> Unit = {},
+) {
     val busy by vm.saving.collectAsStateWithLifecycle()
     val theme by vm.theme.collectAsStateWithLifecycle()
     val dark = theme == "dark" || (theme == "system" && isSystemInDarkTheme())
     val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, vm) {
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refreshDueDate()
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val currentView = androidx.compose.ui.platform.LocalView.current
     SideEffect {
         val activity = context as? android.app.Activity
@@ -127,6 +181,7 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
         val rows by vm.entries.collectAsStateWithLifecycle()
         val cats by vm.categories.collectAsStateWithLifecycle()
         val message by vm.message.collectAsStateWithLifecycle()
+        val undoBatch by vm.undoBatch.collectAsStateWithLifecycle()
         val effects by vm.effects.collectAsStateWithLifecycle()
         val selecting by vm.multiSelecting.collectAsStateWithLifecycle()
         val experience by vm.experience.collectAsStateWithLifecycle()
@@ -144,26 +199,46 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
         val back by nav.currentBackStackEntryAsState()
         val route = back?.destination?.route ?: "明细"
         var editId by rememberSaveable { mutableLongStateOf(0L) }
-        val edit = rows.find { it.id == editId }
+        val edit =
+            remember(rows, editId) { if (editId == 0L) null else rows.find { it.id == editId } }
         var sheetOpen by rememberSaveable { mutableStateOf(false) }
+        var entryInitialType by rememberSaveable { mutableStateOf("EXPENSE") }
         val entryState = rememberSaveableStateHolder()
         var initialDate by remember { mutableStateOf(LocalDate.now()) }
+        LaunchedEffect(quickType, sheetOpen, busy) {
+            if (quickType != null && !sheetOpen && !busy) {
+                entryInitialType = quickType
+                editId = 0L
+                initialDate = LocalDate.now()
+                entryState.removeState("entry")
+                if (nav.currentDestination?.route != "明细")
+                    nav.navigate("明细") {
+                        popUpTo(nav.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                    }
+                sheetOpen = true
+                consumeQuickEntry()
+            }
+        }
+
         val haze = remember { HazeState() }
         val snack = remember { SnackbarHostState() }
-        LaunchedEffect(message) {
-            message?.let {
-                val undoable = vm.undo.value.isNotEmpty() && it.startsWith("已删除")
+        LaunchedEffect(message, undoBatch?.token) {
+            message?.let { text ->
+                val batch =
+                    undoBatch?.takeIf { vm.undo.value.isNotEmpty() && text.startsWith("已删除") }
+                val undoable = batch != null
                 val result =
                     snack.showSnackbar(
-                        it,
+                        text,
                         actionLabel = if (undoable) "撤销" else null,
                         withDismissAction = undoable,
                     )
                 if (undoable) {
-                    if (result == SnackbarResult.ActionPerformed) vm.undoDelete()
-                    else vm.undo.value = emptyList()
+                    if (result == SnackbarResult.ActionPerformed) vm.undoDelete(batch)
+                    else vm.clearUndo(batch?.token)
                 }
-                vm.message.value = null
+                if (vm.message.value == text) vm.message.value = null
             }
         }
         val nativeHaptic = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -186,118 +261,135 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
         ) {
             SideEffect { currentView.isHapticFeedbackEnabled = effects.haptics }
             val feedback = rememberAppFeedback()
-            Scaffold(
-                snackbarHost = { SnackbarHost(snack) },
-                containerColor = MaterialTheme.colorScheme.background,
-                floatingActionButton = {
-                    if (route !in secondaryPages && !selecting)
-                        FloatingActionButton(
-                            onClick = {
-                                feedback()
-                                editId = 0L
-                                initialDate = LocalDate.now()
-                                entryState.removeState("entry")
-                                sheetOpen = true
-                            },
-                            modifier = Modifier.size(72.dp),
-                            shape = CircleShape,
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ) {
-                            Icon(Icons.Outlined.Add, "记账", Modifier.size(32.dp))
-                        }
-                },
-                bottomBar = {
-                    if (route !in secondaryPages)
-                        LiquidNavigation(route, haze) { label ->
-                            if (label != nav.currentDestination?.route) {
-                                navigationFocus.clearFocus()
-                                navigationKeyboard?.hide()
-                                nav.navigate(label) {
-                                    popUpTo(nav.graph.startDestinationId) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+            Box(
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Scaffold(
+                    modifier = Modifier.widthIn(max = 1100.dp).fillMaxSize(),
+                    snackbarHost = { SnackbarHost(snack) },
+                    containerColor = MaterialTheme.colorScheme.background,
+                    floatingActionButton = {
+                        if (route !in secondaryPages && !selecting)
+                            FloatingActionButton(
+                                onClick = {
+                                    feedback()
+                                    editId = 0L
+                                    entryInitialType = "EXPENSE"
+                                    initialDate = LocalDate.now()
+                                    entryState.removeState("entry")
+                                    sheetOpen = true
+                                },
+                                modifier = Modifier.size(72.dp),
+                                shape = CircleShape,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Icon(Icons.Outlined.Add, "记账", Modifier.size(32.dp))
                             }
-                        }
-                },
-            ) { padding ->
-                val floating = route in listOf("明细", "洞察", "我的")
-                CompositionLocalProvider(
-                    LocalFloatingBottomInset provides
-                        if (floating) padding.calculateBottomPadding() else 0.dp
-                ) {
-                    Box(
-                        Modifier.fillMaxSize()
-                            .haze(haze)
-                            .background(MaterialTheme.colorScheme.background)
-                    ) {
-                        NavHost(
-                            nav,
-                            startDestination = "明细",
-                            enterTransition = { pageEnter(effects.motion) },
-                            exitTransition = { pageExit(effects.motion) },
-                            popEnterTransition = { pageEnter(effects.motion, pop = true) },
-                            popExitTransition = { pageExit(effects.motion, pop = true) },
-                            modifier =
-                                Modifier.fillMaxSize()
-                                    .padding(
-                                        top = padding.calculateTopPadding(),
-                                        bottom =
-                                            if (floating) 0.dp
-                                            else padding.calculateBottomPadding(),
-                                        start =
-                                            padding.calculateStartPadding(
-                                                androidx.compose.ui.platform.LocalLayoutDirection
-                                                    .current
-                                            ),
-                                        end =
-                                            padding.calculateEndPadding(
-                                                androidx.compose.ui.platform.LocalLayoutDirection
-                                                    .current
-                                            ),
-                                    ),
-                        ) {
-                            composable("明细") {
-                                RouteSurface(route == "明细") {
-                                    Details(
-                                        rows,
-                                        cats,
-                                        onEdit = {
-                                            editId = it.id
-                                            entryState.removeState("entry")
-                                            sheetOpen = true
-                                        },
-                                        onDelete = { vm.deleteEntries(listOf(it)) },
-                                        vm = vm,
-                                    )
-                                }
-                            }
-                            composable("洞察") {
-                                RouteSurface(route == "洞察") {
-                                    Insights(rows, cats, persist = vm::experience) { d ->
-                                        initialDate = d
-                                        editId = 0L
-                                        entryState.removeState("entry")
-                                        sheetOpen = true
+                    },
+                    bottomBar = {
+                        if (route !in secondaryPages)
+                            LiquidNavigation(route, haze) { label ->
+                                if (label != nav.currentDestination?.route) {
+                                    navigationFocus.clearFocus()
+                                    navigationKeyboard?.hide()
+                                    nav.navigate(label) {
+                                        popUpTo(nav.graph.startDestinationId) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
                                 }
                             }
-                            composable("我的") {
-                                RouteSurface(route == "我的") { SettingsHome(vm, rows, ::openPage) }
-                            }
-                            secondaryPages.forEach { page ->
-                                composable(page) {
-                                    RouteSurface(route == page) {
-                                        Settings(
-                                            vm,
+                    },
+                ) { padding ->
+                    val floating = route in listOf("明细", "洞察", "我的")
+                    CompositionLocalProvider(
+                        LocalFloatingBottomInset provides
+                            if (floating) padding.calculateBottomPadding() else 0.dp
+                    ) {
+                        Box(
+                            Modifier.fillMaxSize()
+                                .haze(haze)
+                                .background(MaterialTheme.colorScheme.background)
+                        ) {
+                            NavHost(
+                                nav,
+                                startDestination = "明细",
+                                enterTransition = { pageEnter(motionAllowed(effects)) },
+                                exitTransition = { pageExit(motionAllowed(effects)) },
+                                popEnterTransition = {
+                                    pageEnter(motionAllowed(effects), pop = true)
+                                },
+                                popExitTransition = {
+                                    pageExit(motionAllowed(effects), pop = true)
+                                },
+                                modifier =
+                                    Modifier.fillMaxSize()
+                                        .padding(
+                                            top = padding.calculateTopPadding(),
+                                            bottom =
+                                                if (floating) 0.dp
+                                                else padding.calculateBottomPadding(),
+                                            start =
+                                                padding.calculateStartPadding(
+                                                    androidx.compose.ui.platform
+                                                        .LocalLayoutDirection
+                                                        .current
+                                                ),
+                                            end =
+                                                padding.calculateEndPadding(
+                                                    androidx.compose.ui.platform
+                                                        .LocalLayoutDirection
+                                                        .current
+                                                ),
+                                        ),
+                            ) {
+                                composable("明细") {
+                                    RouteSurface(route == "明细") {
+                                        Details(
+                                            rows,
                                             cats,
-                                            page,
-                                            back = {
-                                                if (nav.currentDestination?.route == page)
-                                                    nav.popBackStack()
+                                            onEdit = {
+                                                editId = it.id
+                                                entryState.removeState("entry")
+                                                sheetOpen = true
                                             },
-                                            open = ::openPage,
+                                            onDelete = { vm.deleteEntries(listOf(it)) },
+                                            vm = vm,
+                                            openRecurring = { openPage("周期账单") },
                                         )
+                                    }
+                                }
+                                composable("洞察") {
+                                    RouteSurface(route == "洞察") {
+                                        Insights(rows, cats, persist = vm::experience) { d ->
+                                            initialDate = d
+                                            entryInitialType = "EXPENSE"
+                                            editId = 0L
+                                            entryState.removeState("entry")
+                                            sheetOpen = true
+                                        }
+                                    }
+                                }
+                                composable("我的") {
+                                    RouteSurface(route == "我的") {
+                                        SettingsHome(vm, rows, ::openPage)
+                                    }
+                                }
+                                secondaryPages.forEach { page ->
+                                    composable(page) {
+                                        RouteSurface(route == page) {
+                                            Settings(
+                                                vm,
+                                                cats,
+                                                page,
+                                                back = {
+                                                    if (nav.currentDestination?.route == page)
+                                                        nav.popBackStack()
+                                                },
+                                                open = ::openPage,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -315,6 +407,7 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
                             cats,
                             busy,
                             initialCurrency = "CNY",
+                            initialType = entryInitialType,
                             onCancel = { sheetOpen = false },
                             onManage = { openPage("分类管理") },
                             save = { e ->
@@ -373,7 +466,13 @@ private fun CurrencySummary(rows: List<Entry>) {
                         value,
                         style = MaterialTheme.typography.titleMedium,
                         color = color,
-                        maxLines = 1,
+                        maxLines =
+                            if (
+                                androidx.compose.ui.platform.LocalDensity.current.fontScale *
+                                    LocalAppearance.current.scale >= 1.4f
+                            )
+                                Int.MAX_VALUE
+                            else 1,
                     )
                 }
             }
@@ -432,39 +531,65 @@ fun EntryRow(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)),
     ) {
-        Row(
+        val largeText =
+            androidx.compose.ui.platform.LocalDensity.current.fontScale *
+                LocalAppearance.current.scale >= 1.4f
+        val amountText =
+            (if (e.currencyCode != "CNY") e.currencyCode + " " else "") +
+                (if (e.type == "INCOME") "+" else "−") +
+                visibleMoney(e.amount, e.currencyCode, display.hideAmounts)
+        Column(
             Modifier.heightIn(min = if (display.density == "comfortable") 72.dp else 52.dp)
                 .padding(
                     horizontal = 10.dp,
                     vertical = if (display.density == "comfortable") 12.dp else 6.dp,
                 ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(icon(c?.iconKey ?: "circle"), null, Modifier.padding(7.dp).size(18.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                Text(c?.name ?: "分类", style = MaterialTheme.typography.bodyMedium)
-                val subtitle = entrySubtitle(e, display)
-                if (subtitle.isNotBlank())
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Icon(icon(c?.iconKey ?: "circle"), null, Modifier.padding(7.dp).size(18.dp))
+                }
+                Column(Modifier.weight(1f)) {
                     Text(
-                        subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        c?.name ?: "分类",
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
+                    val subtitle = entrySubtitle(e, display)
+                    if (subtitle.isNotBlank())
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = if (largeText) 2 else 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
+                }
+                if (!largeText)
+                    Text(
+                        amountText,
+                        style = MaterialTheme.typography.titleSmall,
+                        color =
+                            if (e.type == "INCOME") MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface,
+                    )
+                trailing?.invoke()
             }
-            Text(
-                (if (e.currencyCode != "CNY") e.currencyCode + " " else "") +
-                    (if (e.type == "INCOME") "+" else "−") +
-                    visibleMoney(e.amount, e.currencyCode, display.hideAmounts),
-                style = MaterialTheme.typography.titleSmall,
-                color =
-                    if (e.type == "INCOME") MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
-            )
-            trailing?.invoke()
+            if (largeText)
+                Text(
+                    amountText,
+                    Modifier.align(Alignment.End),
+                    style = MaterialTheme.typography.titleSmall,
+                    color =
+                        if (e.type == "INCOME") MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+                )
         }
     }
 }
@@ -550,7 +675,13 @@ private fun MonthCurrencyHeader(
                             value,
                             style = MaterialTheme.typography.labelLarge,
                             color = color,
-                            maxLines = 1,
+                            maxLines =
+                                if (
+                                    androidx.compose.ui.platform.LocalDensity.current.fontScale *
+                                        LocalAppearance.current.scale >= 1.4f
+                                )
+                                    Int.MAX_VALUE
+                                else 1,
                         )
                     }
                 }
@@ -570,6 +701,7 @@ fun Details(
     onEdit: (Entry) -> Unit,
     onDelete: (Entry) -> Unit,
     vm: LedgerViewModel? = null,
+    openRecurring: () -> Unit = {},
 ) {
     var selectionMode by rememberSaveable { mutableStateOf(false) }
     var selectedIds by rememberSaveable { mutableStateOf<Set<Long>>(emptySet()) }
@@ -577,12 +709,19 @@ fun Details(
         selectionMode = false
         selectedIds = emptySet()
     }
-    androidx.activity.compose.BackHandler(
-        enabled = selectionMode && LocalRouteActive.current,
-        onBack = ::leaveSelection,
-    )
+    val selectionBackProgress =
+        rememberPredictiveDismiss(selectionMode && LocalRouteActive.current, ::leaveSelection)
     DisposableEffect(Unit) { onDispose { vm?.multiSelecting?.value = false } }
-    LaunchedEffect(selectionMode) { vm?.multiSelecting?.value = selectionMode }
+    val routeActive = LocalRouteActive.current
+    LaunchedEffect(selectionMode, routeActive) {
+        vm?.multiSelecting?.value = selectionMode && routeActive
+    }
+    val recurring by
+        (vm?.recurring ?: kotlinx.coroutines.flow.MutableStateFlow(emptyList<RecurringBill>()))
+            .collectAsState()
+    val today by
+        (vm?.today ?: kotlinx.coroutines.flow.MutableStateFlow(LocalDate.now())).collectAsState()
+    val due = recurring.count { it.enabled && !LocalDate.parse(it.nextDate).isAfter(today) }
     var month by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var query by remember { mutableStateOf("") }
     var type by remember { mutableStateOf("EXPENSE") }
@@ -590,6 +729,8 @@ fun Details(
     var from by remember { mutableStateOf<LocalDate?>(null) }
     var to by remember { mutableStateOf<LocalDate?>(null) }
     var filter by remember { mutableStateOf(false) }
+    var advanced by remember { mutableStateOf(BillSearch()) }
+    var advancedAllDates by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<Entry?>(null) }
     var swipedId by remember { mutableStateOf<Long?>(null) }
     var search by remember { mutableStateOf(false) }
@@ -604,22 +745,31 @@ fun Details(
     }
     val period = DateSpan.month(month)
     val zone = ZoneId.systemDefault()
+    val advancedMatch = remember(advanced) { advanced.predicate() }
+    val searchCategories = remember(cats) { cats.associateBy { it.id } }
     val scoped =
-        remember(rows, cats, period, category, query, from, to, zone) {
+        remember(rows, cats, period, category, query, from, to, zone, advanced, advancedAllDates) {
             rows.filter { e ->
-                (if (from != null && to != null) !e.date().isBefore(from) && !e.date().isAfter(to)
+                (if (advancedAllDates) true
+                else if (from != null || to != null)
+                    (from == null || !e.date().isBefore(from)) &&
+                        (to == null || !e.date().isAfter(to))
                 else period.contains(e)) &&
                     (category == 0L || e.categoryId == category) &&
+                    advancedMatch(e) &&
                     (query.isBlank() ||
                         e.note.contains(query, true) ||
                         e.tags.contains(query, true) ||
-                        cats.find { it.id == e.categoryId }?.name?.contains(query, true) == true)
+                        searchCategories[e.categoryId]?.name?.contains(query, true) == true)
             }
         }
     val filtered = remember(scoped, type) { scoped.filter { it.type == type } }
     LaunchedEffect(filtered) { vm?.currentExportIds?.value = filtered.map { it.id }.toSet() }
     val grouped = remember(filtered, zone) { filtered.groupBy { it.date() } }
-    var visibleCount by remember(month, type, category, from, to, query) { mutableIntStateOf(50) }
+    var visibleCount by
+        remember(month, type, category, from, to, query, advanced, advancedAllDates) {
+            mutableIntStateOf(50)
+        }
     val listState = rememberLazyListState()
     LaunchedEffect(listState, filtered.size) {
         snapshotFlow {
@@ -655,6 +805,12 @@ fun Details(
                     ::closeSearch,
                     { searchBounds = it },
                     { filter = true },
+                    filtered =
+                        advanced != BillSearch() ||
+                            advancedAllDates ||
+                            category != 0L ||
+                            from != null ||
+                            to != null,
                 )
             }
             item {
@@ -662,8 +818,24 @@ fun Details(
                     month = it
                     from = null
                     to = null
+                    advancedAllDates = false
                 }
             }
+            if (advancedAllDates || from != null || to != null)
+                item {
+                    Text(
+                        if (advancedAllDates) "筛选范围：全部日期"
+                        else "筛选范围：${from ?: "不限"} 至 ${to ?: "不限"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            if (due > 0)
+                item {
+                    TextButton(onClick = openRecurring, modifier = Modifier.fillMaxWidth()) {
+                        Text("$due 项周期账单待确认")
+                    }
+                }
             if (filtered.isEmpty()) item { Empty() }
             var remaining = visibleCount
             for ((day, dayEntries) in grouped) {
@@ -677,7 +849,7 @@ fun Details(
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
-                items(list, key = { it.id }) { e ->
+                items(list, key = { it.id }, contentType = { "bill" }) { e ->
                     if (selectionMode)
                         EntryRow(
                             e,
@@ -697,7 +869,14 @@ fun Details(
                                         e.id in selectedIds,
                                         onCheckedChange = null,
                                         modifier =
-                                            Modifier.size(24.dp).testTag("bill-checkbox-${e.id}"),
+                                            Modifier.size(24.dp)
+                                                .testTag("bill-checkbox-${e.id}")
+                                                .semantics {
+                                                    stateDescription =
+                                                        if (e.id in selectedIds) "已选" else "未选"
+                                                    role =
+                                                        androidx.compose.ui.semantics.Role.Checkbox
+                                                },
                                     )
                                 }
                             },
@@ -727,31 +906,36 @@ fun Details(
         androidx.compose.animation.AnimatedVisibility(
             visible = selectionMode && vm != null,
             modifier =
-                Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.align(Alignment.TopCenter)
+                    .graphicsLayer {
+                        translationY = -16.dp.toPx() * selectionBackProgress
+                        alpha = 1f - selectionBackProgress * .4f
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             enter =
                 androidx.compose.animation.slideInVertically(
                     animationSpec =
                         androidx.compose.animation.core.tween(
-                            if (LocalEffects.current.motion) 220 else 0
+                            if (motionAllowed(LocalEffects.current)) UiMotion.ShortMillis else 0
                         ),
                     initialOffsetY = { -it },
                 ) +
                     androidx.compose.animation.fadeIn(
                         androidx.compose.animation.core.tween(
-                            if (LocalEffects.current.motion) 160 else 0
+                            if (motionAllowed(LocalEffects.current)) 120 else 0
                         )
                     ),
             exit =
                 androidx.compose.animation.slideOutVertically(
                     animationSpec =
                         androidx.compose.animation.core.tween(
-                            if (LocalEffects.current.motion) 180 else 0
+                            if (motionAllowed(LocalEffects.current)) UiMotion.ShortMillis else 0
                         ),
                     targetOffsetY = { -it },
                 ) +
                     androidx.compose.animation.fadeOut(
                         androidx.compose.animation.core.tween(
-                            if (LocalEffects.current.motion) 140 else 0
+                            if (motionAllowed(LocalEffects.current)) 120 else 0
                         )
                     ),
         ) {
@@ -765,86 +949,33 @@ fun Details(
                 )
         }
     }
-    if (filter)
-        GlassAlertDialog(
-            onDismissRequest = { filter = false },
-            title = { Text("筛选账单") },
-            modifier = Modifier.width(billFilterDialogWidth()),
-            properties =
-                androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (v, n) ->
-                            FilterChip(
-                                type == v,
-                                {
-                                    type = v
-                                    category = 0
-                                },
-                                label = { Text(n) },
-                            )
-                        }
-                    }
-                    Row {
-                        DateButton(from ?: month) {
-                            from = it
-                            if (to == null) to = month.plusMonths(1).minusDays(1)
-                        }
-                        DateButton(to ?: month.plusMonths(1).minusDays(1)) {
-                            to = it
-                            if (from == null) from = month
-                        }
-                    }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        modifier =
-                            Modifier.heightIn(max = 240.dp).testTag("bill-filter-categories"),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(cats.filter { it.type == type }, key = { it.id }) { c ->
-                            FilterChip(
-                                category == c.id,
-                                { category = if (category == c.id) 0L else c.id },
-                                label = {
-                                    Text(
-                                        c.name,
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelMedium,
-                                    )
-                                },
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (from != null && to != null && from!! > to!!) {
-                            val x = from
-                            from = to
-                            to = x
-                        }
-                        filter = false
-                    }
-                ) {
-                    Text("应用")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        type = "EXPENSE"
-                        category = 0
-                        from = null
-                        to = null
-                        filter = false
-                    }
-                ) {
-                    Text("重置")
-                }
+    if (filter && vm != null)
+        AdvancedSearchDialog(
+            vm,
+            cats,
+            advanced.copy(
+                keyword = query,
+                type = type,
+                categoryId = category,
+                from = if (advancedAllDates) null else from ?: month,
+                to = if (advancedAllDates) null else to ?: month.plusMonths(1).minusDays(1),
+            ),
+            { filter = false },
+            { next ->
+                query = next.keyword
+                type = next.type
+                category = next.categoryId
+                from = next.from
+                to = next.to
+                advancedAllDates = next.from == null && next.to == null
+                advanced =
+                    next.copy(
+                        keyword = "",
+                        type = "EXPENSE",
+                        categoryId = 0,
+                        from = null,
+                        to = null,
+                    )
             },
         )
     deleting?.let { e ->

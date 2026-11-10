@@ -73,34 +73,79 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    val today = MutableStateFlow(java.time.LocalDate.now())
+
+    fun refreshDueDate() {
+        today.value = java.time.LocalDate.now()
+    }
+
     val multiSelecting = MutableStateFlow(false)
     val currentExportIds = MutableStateFlow<Set<Long>>(emptySet())
     val undo = MutableStateFlow<List<Entry>>(emptyList())
 
-    fun deleteEntries(bills: List<Entry>) = action {
-        repository.db.withTransaction { bills.forEach { repository.dao.delete(it.id) } }
-        if (experience.value.undoDelete) undo.value = bills
-        message.value = "已删除 ${bills.size} 笔账单"
+    data class UndoBatch(val token: Long, val ids: Set<Long>)
+
+    val undoBatch = MutableStateFlow<UndoBatch?>(null)
+    private var undoSequence = 0L
+    val trash =
+        flow {
+                initialized.filter { it }.first()
+                emitAll(repository.dao.trashEntries())
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val recurring =
+        flow {
+                initialized.filter { it }.first()
+                emitAll(repository.dao.recurringBills())
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val trashRetentionDays =
+        app.preferences.data
+            .map { it[intPreferencesKey("trashRetentionDays")] ?: 30 }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 30)
+
+    fun retention(days: Int) = action {
+        require(days in listOf(0, 7, 30, 90))
+        getApplication<Application>().preferences.edit {
+            it[intPreferencesKey("trashRetentionDays")] = days
+        }
+        if (days > 0) repository.dao.pruneTrash(System.currentTimeMillis() - days * 86400000L)
     }
 
-    fun undoDelete() = action {
-        val bills = undo.value
-        repository.db.withTransaction {
-            val current = repository.dao.allEntries()
-            val cats = repository.dao.allCategories()
-            require(bills.all { b -> cats.any { it.id == b.categoryId && it.type == b.type } }) {
-                "原分类已不存在"
-            }
-            (current + bills.filter { b -> current.none { it.id == b.id } })
-                .groupBy { it.currencyCode }
-                .values
-                .forEach { totals(it) }
-            bills
-                .filter { b -> current.none { it.id == b.id } }
-                .forEach { repository.dao.insert(it) }
+    fun deleteEntries(bills: List<Entry>) = action {
+        val ids = repository.recycle(bills.map { it.id }.toSet())
+        undoBatch.value =
+            if (experience.value.undoDelete && ids.isNotEmpty())
+                UndoBatch(++undoSequence, ids.toSet())
+            else null
+        undo.value = if (experience.value.undoDelete && ids.isNotEmpty()) bills else emptyList()
+        message.value = "已删除 ${ids.size} 笔账单，已移入回收站"
+    }
+
+    fun clearUndo(token: Long? = null) {
+        if (token == null || undoBatch.value?.token == token) {
+            undoBatch.value = null
+            undo.value = emptyList()
         }
-        undo.value = emptyList()
+    }
+
+    fun undoDelete(batch: UndoBatch? = undoBatch.value) = action {
+        require(batch != null && batch.ids.isNotEmpty()) { "没有可撤销的删除" }
+        repository.restoreTrash(batch.ids)
+        clearUndo(batch.token)
         message.value = "已撤销删除"
+    }
+
+    fun restoreArchived(ids: Set<Long>) = action {
+        repository.restoreTrash(ids)
+        clearUndo()
+        message.value = "已恢复 ${ids.size} 笔账单"
+    }
+
+    fun permanentlyDelete(ids: Set<Long>) = action {
+        repository.db.withTransaction { ids.forEach { repository.dao.deleteTrash(it) } }
+        clearUndo()
+        message.value = "已彻底删除 ${ids.size} 笔账单"
     }
 
     fun resetProfile() = action {
@@ -131,14 +176,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     val appearance =
         app.preferences.data
-            .map {
-                AppAppearance(
-                    it[stringPreferencesKey("palette")] ?: "system",
-                    it[booleanPreferencesKey("pureBlack")] ?: false,
-                    it[stringPreferencesKey("fontSize")] ?: "system",
-                    (it[intPreferencesKey("customFontPercent")] ?: 100).coerceIn(75, 160),
-                )
-            }
+            .map(::appearanceFromPreferences)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppAppearance())
 
     fun preference(key: String, value: String) = action {
@@ -168,7 +206,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun restoreData(raw: String) {
-        undo.value = emptyList()
+        clearUndo()
         localData.restore(raw)
         initialized.value = true
     }
@@ -217,6 +255,12 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
                 it.remove(booleanPreferencesKey("glass"))
             }
             repository.seed()
+            val keep =
+                getApplication<Application>()
+                    .preferences
+                    .data
+                    .first()[intPreferencesKey("trashRetentionDays")] ?: 30
+            if (keep > 0) repository.dao.pruneTrash(System.currentTimeMillis() - keep * 86400000L)
             initialized.value = true
         }
     }

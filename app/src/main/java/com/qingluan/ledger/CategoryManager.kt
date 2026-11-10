@@ -157,7 +157,7 @@ fun CategoryManager(
                                 fadeInSpec = null,
                                 fadeOutSpec = null,
                                 placementSpec =
-                                    if (effects.motion)
+                                    if (motionAllowed(effects))
                                         androidx.compose.animation.core.spring(stiffness = 900f)
                                     else null,
                             )

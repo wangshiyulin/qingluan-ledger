@@ -30,13 +30,16 @@ fun EntryPanel(
     cats: List<Category>,
     busy: Boolean,
     initialCurrency: String = "CNY",
+    initialType: String = "EXPENSE",
     onCancel: () -> Unit,
     onManage: () -> Unit,
     save: (Entry) -> Unit,
 ) {
     val feedback = rememberAppFeedback("input")
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale * LocalAppearance.current.scale
+    val categoryColumns = if (fontScale > 1.3f) 3 else 4
     var currency by rememberSaveable { mutableStateOf(original?.currencyCode ?: initialCurrency) }
-    var type by rememberSaveable { mutableStateOf(original?.type ?: "EXPENSE") }
+    var type by rememberSaveable { mutableStateOf(original?.type ?: initialType.takeIf { it == "INCOME" } ?: "EXPENSE") }
     var category by rememberSaveable { mutableLongStateOf(original?.categoryId ?: 0L) }
     var amount by rememberSaveable {
         mutableStateOf(original?.let { Money.text(it.amount, it.currencyCode) } ?: "")
@@ -113,7 +116,9 @@ fun EntryPanel(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (value, label) ->
                 TextButton(
+                    modifier = Modifier.semantics { this.selected = type == value; role = Role.Tab },
                     onClick = {
+                        feedback()
                         focus.clearFocus()
                         keyboard?.hide()
                         if (type != value) {
@@ -137,7 +142,7 @@ fun EntryPanel(
         }
         if (picking) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(4),
+                columns = GridCells.Fixed(categoryColumns),
                 modifier = Modifier.weight(1f, fill = false),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -145,6 +150,10 @@ fun EntryPanel(
                 items(cats.filter { it.type == type }, key = { it.id }) { c ->
                     Column(
                         Modifier.fillMaxWidth()
+                            .semantics(mergeDescendants = true) {
+                                this.selected = category == c.id
+                                role = Role.Button
+                            }
                             .clickable {
                                 feedback()
                                 category = c.id
@@ -162,7 +171,7 @@ fun EntryPanel(
                             Icon(icon(c.iconKey), null, Modifier.padding(16.dp).size(24.dp))
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text(c.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        Text(c.name, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                     }
                 }
             }
@@ -175,153 +184,162 @@ fun EntryPanel(
                 Text("分类管理")
             }
         } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                CurrencyButton(currency) {
-                    if (amount.isNotEmpty() && Money.parse(amount, it) == null) amount = ""
-                    currency = it
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    CurrencyButton(currency) {
+                        if (amount.isNotEmpty() && Money.parse(amount, it) == null) amount = ""
+                        currency = it
+                    }
+                    Text(
+                        amount.ifEmpty { Money.text(0, currency) },
+                        Modifier.weight(1f).horizontalScroll(rememberScrollState())
+                            .padding(vertical = 8.dp).testTag("entry-amount")
+                            .semantics { contentDescription = "金额，${amount.ifEmpty { "0" }}"; liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.headlineLarge,
+                        maxLines = 1,
+                    )
                 }
-                Text(
-                    amount.ifEmpty { Money.text(0, currency) },
-                    Modifier.weight(1f).padding(vertical = 8.dp).testTag("entry-amount"),
-                    style = MaterialTheme.typography.headlineLarge,
-                    maxLines = 1,
+                OutlinedTextField(
+                    note,
+                    { note = it },
+                    Modifier.fillMaxWidth().testTag("entry-note"),
+                    label = { Text("备注") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                focus.clearFocus()
+                                keyboard?.hide()
+                            }
+                        ),
                 )
-            }
-            OutlinedTextField(
-                note,
-                { note = it },
-                Modifier.fillMaxWidth().testTag("entry-note"),
-                placeholder = { Text("备注") },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions =
-                    KeyboardActions(
-                        onDone = {
-                            focus.clearFocus()
-                            keyboard?.hide()
-                        }
-                    ),
-            )
-            ReceiptSelector(receipt) { receipt = it }
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                            listOf("7", "8", "9"),
-                            listOf("4", "5", "6"),
-                            listOf("1", "2", "3"),
-                            listOf(".", "0", "⌫"),
-                        )
-                        .forEach { line ->
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                line.forEach { value ->
-                                    Box(
-                                        Modifier.weight(1f)
-                                            .height(48.dp)
-                                            .then(
-                                                if (value == "⌫")
-                                                    Modifier.semantics {
-                                                        contentDescription = "删除一位"
-                                                        customActions =
-                                                            listOf(
-                                                                CustomAccessibilityAction("清空金额") {
-                                                                    amount = ""
-                                                                    true
-                                                                }
-                                                            )
-                                                    }
-                                                else Modifier
-                                            )
-                                            .combinedClickable(
-                                                enabled =
-                                                    value != "." ||
-                                                        Currencies.get(currency).digits > 0,
-                                                onClick = {
-                                                    focus.clearFocus()
-                                                    keyboard?.hide()
-                                                    key(value)
-                                                },
-                                                onLongClick =
-                                                    if (value == "⌫") ({ amount = "" }) else null,
-                                            ),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        if (value == "⌫") Icon(Icons.Outlined.Backspace, null)
-                                        else
-                                            Text(
-                                                value,
-                                                style = MaterialTheme.typography.titleLarge,
-                                                color = MaterialTheme.colorScheme.primary,
-                                            )
+                ReceiptSelector(receipt) { receipt = it }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                                listOf("7", "8", "9"),
+                                listOf("4", "5", "6"),
+                                listOf("1", "2", "3"),
+                                listOf(".", "0", "⌫"),
+                            )
+                            .forEach { line ->
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    line.forEach { value ->
+                                        Box(
+                                            Modifier.weight(1f)
+                                                .heightIn(min = 48.dp)
+                                                .then(
+                                                    if (value == "⌫")
+                                                        Modifier.semantics {
+                                                            contentDescription = "删除一位"
+                                                            role = Role.Button
+                                                            customActions =
+                                                                listOf(
+                                                                    CustomAccessibilityAction("清空金额") {
+                                                                        feedback()
+                                                                        amount = ""
+                                                                        true
+                                                                    }
+                                                                )
+                                                        }
+                                                    else Modifier.semantics { role = Role.Button }
+                                                )
+                                                .combinedClickable(
+                                                    enabled =
+                                                        value != "." ||
+                                                            Currencies.get(currency).digits > 0,
+                                                    onClick = {
+                                                        focus.clearFocus()
+                                                        keyboard?.hide()
+                                                        key(value)
+                                                    },
+                                                    onLongClick =
+                                                        if (value == "⌫") ({ feedback(); amount = "" }) else null,
+                                                ),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            if (value == "⌫") Icon(Icons.Outlined.Backspace, null)
+                                            else
+                                                Text(
+                                                    value,
+                                                    style = MaterialTheme.typography.titleLarge,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                )
+                                        }
                                     }
                                 }
                             }
-                        }
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(
-                        onClick = {
-                            focus.clearFocus()
-                            keyboard?.hide()
-                            dateOpen = true
-                        },
-                        Modifier.fillMaxWidth().height(48.dp).testTag("entry-date"),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(2.dp),
-                    ) {
-                        Text(
-                            LocalDate.parse(dateText)
-                                .format(DateTimeFormatter.ofPattern("yyyy\nMM/dd")),
-                            style = MaterialTheme.typography.labelSmall,
-                        )
                     }
-                    FilledTonalButton(
-                        onClick = {
-                            focus.clearFocus()
-                            keyboard?.hide()
-                            timeOpen = true
-                        },
-                        Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(2.dp),
-                    ) {
-                        Text(timeText, style = MaterialTheme.typography.labelMedium)
-                    }
-                    FilledTonalButton(
-                        enabled =
-                            !busy && Money.parse(amount, currency) != null && selected != null,
-                        onClick = {
-                            save(
-                                Entry(
-                                    original?.id ?: 0L,
-                                    type,
-                                    Money.parse(amount, currency)!!,
-                                    category,
-                                    resolveEntryTime(
-                                        original?.occurredAt,
-                                        LocalDate.parse(dateText),
-                                        LocalTime.parse(timeText),
-                                        manualDateTime,
-                                        dateTimeChanged,
-                                    ),
-                                    note,
-                                    original?.createdAt ?: System.currentTimeMillis(),
-                                    System.currentTimeMillis(),
-                                    currencyCode = currency,
-                                    tags = original?.tags ?: "",
-                                    receipt = receipt,
-                                )
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilledTonalButton(
+                            onClick = {
+                                focus.clearFocus()
+                                keyboard?.hide()
+                                dateOpen = true
+                            },
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("entry-date")
+                                .semantics { contentDescription = "日期，$dateText" },
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(2.dp),
+                        ) {
+                            Text(
+                                LocalDate.parse(dateText)
+                                    .format(DateTimeFormatter.ofPattern("yyyy\nMM/dd")),
+                                style = MaterialTheme.typography.labelSmall,
                             )
-                        },
-                        modifier = Modifier.fillMaxWidth().height(104.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        contentPadding = PaddingValues(4.dp),
-                    ) {
-                        Text("完成")
+                        }
+                        FilledTonalButton(
+                            onClick = {
+                                focus.clearFocus()
+                                keyboard?.hide()
+                                timeOpen = true
+                            },
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                .semantics { contentDescription = "时间，$timeText" },
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(2.dp),
+                        ) {
+                            Text(timeText, style = MaterialTheme.typography.labelMedium)
+                        }
+                        FilledTonalButton(
+                            enabled =
+                                !busy && Money.parse(amount, currency) != null && selected != null,
+                            onClick = {
+                                save(
+                                    Entry(
+                                        original?.id ?: 0L,
+                                        type,
+                                        Money.parse(amount, currency)!!,
+                                        category,
+                                        resolveEntryTime(
+                                            original?.occurredAt,
+                                            LocalDate.parse(dateText),
+                                            LocalTime.parse(timeText),
+                                            manualDateTime,
+                                            dateTimeChanged,
+                                        ),
+                                        note,
+                                        original?.createdAt ?: System.currentTimeMillis(),
+                                        System.currentTimeMillis(),
+                                        currencyCode = currency,
+                                        tags = original?.tags ?: "",
+                                        receipt = receipt,
+                                    )
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(4.dp),
+                        ) {
+                            Text("完成")
+                        }
                     }
                 }
             }

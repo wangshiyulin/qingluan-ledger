@@ -124,8 +124,26 @@ fun SecurityGate(onReady: (Preferences) -> Unit = {}, content: @Composable () ->
             Modifier.fillMaxSize(),
             color = androidx.compose.ui.res.colorResource(R.color.startup_background),
         ) {}
-    else if (locked && !unlocked)
-        MaterialTheme {
+    else if (locked && !unlocked) {
+        val mode = prefs?.get(stringPreferencesKey("theme")) ?: "system"
+        val dark =
+            mode == "dark" || (mode != "light" && androidx.compose.foundation.isSystemInDarkTheme())
+        val style =
+            appearanceFromPreferences(
+                prefs ?: androidx.datastore.preferences.core.emptyPreferences()
+            )
+        val view = androidx.compose.ui.platform.LocalView.current
+        SideEffect {
+            androidx.core.view.WindowCompat.getInsetsController((context as Activity).window, view)
+                .apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+        }
+        MaterialTheme(
+            colorScheme = appearanceColors(context, dark, style),
+            typography = appearanceTypography(style),
+        ) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Column(
                     Modifier.fillMaxSize(),
@@ -149,7 +167,7 @@ fun SecurityGate(onReady: (Preferences) -> Unit = {}, content: @Composable () ->
                 }
             }
         }
-    else content()
+    } else content()
 }
 
 @Composable

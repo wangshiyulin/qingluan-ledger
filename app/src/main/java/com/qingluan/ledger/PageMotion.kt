@@ -33,9 +33,9 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.pageEnter(
             -1
         else 1
     return if (tab)
-        slideInHorizontally(tween(160, easing = FastOutSlowInEasing)) { it / 12 * direction } +
+        slideInHorizontally(tween(UiMotion.ShortMillis, easing = FastOutSlowInEasing)) { it / 12 * direction } +
             fadeIn(tween(140))
-    else slideInHorizontally(tween(200, easing = FastOutSlowInEasing)) { if (pop) -it / 4 else it }
+    else slideInHorizontally(tween(UiMotion.ShortMillis, easing = FastOutSlowInEasing)) { if (pop) -it / 4 else it }
 }
 
 fun AnimatedContentTransitionScope<NavBackStackEntry>.pageExit(
@@ -54,9 +54,9 @@ fun AnimatedContentTransitionScope<NavBackStackEntry>.pageExit(
             -1
         else 1
     return if (tab)
-        slideOutHorizontally(tween(160, easing = FastOutSlowInEasing)) { -it / 12 * direction } +
+        slideOutHorizontally(tween(UiMotion.ShortMillis, easing = FastOutSlowInEasing)) { -it / 12 * direction } +
             fadeOut(tween(120))
-    else slideOutHorizontally(tween(200, easing = FastOutSlowInEasing)) { if (pop) it else -it / 4 }
+    else slideOutHorizontally(tween(UiMotion.ShortMillis, easing = FastOutSlowInEasing)) { if (pop) it else -it / 4 }
 }
 
 /** Keep outgoing panes opaque and inert while new pages can already receive input. */

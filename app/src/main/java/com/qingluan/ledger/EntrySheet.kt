@@ -15,11 +15,12 @@ import androidx.compose.ui.window.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntrySheet(dismiss: () -> Unit, content: @Composable () -> Unit) {
-    if (LocalEffects.current.motion)
+    if (motionAllowed(LocalEffects.current))
         ModalBottomSheet(
             onDismissRequest = dismiss,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             dragHandle = null,
+            sheetMaxWidth = 600.dp,
         ) {
             content()
         }
@@ -36,7 +37,7 @@ fun EntrySheet(dismiss: () -> Unit, content: @Composable () -> Unit) {
                         .clickable(onClick = dismiss)
                 )
                 Surface(
-                    Modifier.fillMaxWidth().pointerInput(Unit) { detectTapGestures {} },
+                    Modifier.widthIn(max = 600.dp).fillMaxWidth().imePadding().pointerInput(Unit) { detectTapGestures {} },
                     shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                 ) {

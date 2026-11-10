@@ -20,6 +20,7 @@ import dev.chrisbanes.haze.*
 @Composable
 fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
     val effects = LocalEffects.current
+    val motion = motionAllowed(effects)
     val strength = LocalExperience.current.motionStrength
     val feedback = rememberAppFeedback("navigation")
     val shape = RoundedCornerShape(28.dp)
@@ -28,7 +29,7 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
         Modifier.navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 7.dp)
             .fillMaxWidth()
-            .height(58.dp)
+            .height(64.dp)
             .shadow(6.dp, shape)
             .clip(shape)
             .hazeChild(
@@ -65,14 +66,14 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
                 val pressed by interaction.collectIsPressedAsState()
                 val scale by
                     animateFloatAsState(
-                        if (pressed && effects.motion)
+                        if (pressed && motion)
                             when (strength) {
                                 "subtle" -> .98f
                                 "lively" -> .89f
                                 else -> .93f
                             }
                         else 1f,
-                        if (effects.motion) spring(dampingRatio = .7f, stiffness = 900f)
+                        if (motion) spring(dampingRatio = .7f, stiffness = 900f)
                         else snap(),
                         label = "导航按压",
                     )
@@ -80,7 +81,7 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
                     animateColorAsState(
                         if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .75f)
                         else Color.Transparent,
-                        tween(if (effects.motion) 100 else 0),
+                        tween(if (motion) UiMotion.FeedbackMillis else 0),
                         label = "导航材质",
                     )
                 Column(
@@ -93,8 +94,10 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
                         .clip(RoundedCornerShape(26.dp))
                         .background(color)
                         .clickable(interactionSource = interaction, indication = ripple()) {
-                            feedback()
-                            select(label)
+                            if (!selected) {
+                                feedback()
+                                select(label)
+                            }
                         }
                         .semantics {
                             this.selected = selected
@@ -126,20 +129,21 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
 @Composable
 fun Modifier.elasticClickable(onClick: () -> Unit): Modifier {
     val effects = LocalEffects.current
+    val motion = motionAllowed(effects)
     val strength = LocalExperience.current.motionStrength
     val feedback = rememberAppFeedback()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by
         animateFloatAsState(
-            if (pressed && effects.motion)
+            if (pressed && motion)
                 when (strength) {
                     "subtle" -> .99f
                     "lively" -> .94f
                     else -> .97f
                 }
             else 1f,
-            if (effects.motion) spring(dampingRatio = .65f, stiffness = 1000f) else snap(),
+            if (motion) spring(dampingRatio = .65f, stiffness = 1000f) else snap(),
             label = "轻触回弹",
         )
     return this.graphicsLayer {

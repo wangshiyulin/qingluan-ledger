@@ -15,3 +15,12 @@ License text is bundled in the APK and source tree at `app/src/main/assets/licen
 This notice applies to those third-party icons. The user-supplied Qingluan brand artwork is separate; this document does not grant third-party rights to that brand artwork or choose a license for the complete application.
 
 Other existing dependencies retain their upstream licenses and notices.
+
+## OkHttp and Okio
+
+WebDAV requests use OkHttp 4.12.0 and its Okio dependency, distributed under the Apache License, Version 2.0.
+
+- https://github.com/square/okhttp
+- https://github.com/square/okio
+
+Copyright Square, Inc. and the respective contributors. Apache-2.0 license text is included in `app/src/main/assets/licenses/Apache-2.0.txt`.

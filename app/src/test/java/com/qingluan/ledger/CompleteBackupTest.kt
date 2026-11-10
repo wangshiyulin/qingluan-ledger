@@ -66,7 +66,7 @@ class CompleteBackupTest {
     @Test
     fun fullRoundTripIncludesAvatarAndAllSettings() = runBlocking {
         val raw = manager.export()
-        assertEquals(6, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(7, JSONObject(raw).getInt("formatVersion"))
         val image = File(context.filesDir, "avatar.jpg").readBytes()
         repo.dao.clear()
         context.preferences.updateData { emptyPreferences() }

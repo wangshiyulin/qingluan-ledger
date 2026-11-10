@@ -31,7 +31,7 @@ fun GlassAlertDialog(
             title()
         },
         text = text,
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .94f),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = .94f),
     )
 }
 

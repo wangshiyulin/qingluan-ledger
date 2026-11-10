@@ -19,12 +19,17 @@ fun ConfigChoice(
     update: (String) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
+    val feedback = rememberAppFeedback()
     Surface(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         ListItem(
-            modifier = Modifier.clickable { open = true },
+            modifier =
+                Modifier.clickable {
+                    feedback()
+                    open = true
+                },
             headlineContent = { Text(label) },
             trailingContent = {
                 Text(choices[value] ?: value, style = MaterialTheme.typography.labelMedium)
@@ -40,11 +45,15 @@ fun ConfigChoice(
             onDismissRequest = { open = false },
             title = { Text(label) },
             text = {
-                Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState())) {
+                Column(
+                    Modifier.heightIn(max = minOf(380.dp, dialogContentMaxHeight()))
+                        .verticalScroll(rememberScrollState())
+                ) {
                     choices.forEach { (key, name) ->
                         Row(
                             Modifier.fillMaxWidth()
                                 .selectable(key == value, role = Role.RadioButton) {
+                                    if (key != value) feedback()
                                     update(key)
                                     open = false
                                 }
@@ -63,12 +72,21 @@ fun ConfigChoice(
 
 @Composable
 fun ConfigSwitch(label: String, value: Boolean, update: (Boolean) -> Unit) {
+    val feedback = rememberAppFeedback()
     Surface(
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         ListItem(
-            modifier = Modifier.toggleable(value, role = Role.Switch, onValueChange = update),
+            modifier =
+                Modifier.toggleable(
+                    value,
+                    role = Role.Switch,
+                    onValueChange = {
+                        feedback()
+                        update(it)
+                    },
+                ),
             headlineContent = { Text(label) },
             trailingContent = { Switch(value, null) },
             colors =
@@ -131,4 +149,5 @@ fun ExperienceControls(vm: LedgerViewModel, page: String) {
 }
 
 val secondaryPages =
-    listOf("分类管理", "个性化", "本地数据", "操作反馈", "列表显示", "统计偏好", "数据保护", "同步") + aboutPages
+    listOf("分类管理", "个性化", "本地数据", "操作反馈", "列表显示", "统计偏好", "数据保护", "同步", "回收站", "周期账单", "其他设置") +
+        aboutPages

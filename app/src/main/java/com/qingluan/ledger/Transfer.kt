@@ -49,7 +49,13 @@ fun snapshotBills(data: CompleteSnapshot): List<CsvBill> {
     }
 }
 
-data class ImportPreview(val bills: List<CsvBill>, val fullJson: String?, val kind: String) {
+data class ImportPreview(
+    val bills: List<CsvBill>,
+    val fullJson: String?,
+    val kind: String,
+    val errors: List<CsvRowError> = emptyList(),
+    val totalRows: Int = bills.size + errors.size,
+) {
     val from
         get() =
             bills.minOfOrNull {
@@ -68,10 +74,41 @@ data class ImportPreview(val bills: List<CsvBill>, val fullJson: String?, val ki
 }
 
 fun decodeTransfer(raw: String, kind: String, password: CharArray): ImportPreview {
+    require(kind in setOf("csv", "json", "encrypted")) { "不支持的文件格式" }
+    require(raw.toByteArray(Charsets.UTF_8).size <= CompleteBackup.MAX_BYTES) { "文件超过16MB限制" }
     val plaintext = if (kind == "encrypted") BackupCipher.decrypt(raw, password) else raw
-    return if (kind == "csv") ImportPreview(CsvImport.decode(plaintext), null, kind)
-    else {
+    return if (kind == "csv") {
+        val csv = CsvImport.preview(plaintext)
+        ImportPreview(csv.bills, null, kind, csv.errors, csv.totalRows)
+    } else {
+        validateTransferJson(plaintext)
         val snapshot = CompleteBackup.decode(plaintext)
         ImportPreview(snapshotBills(snapshot), plaintext, kind)
     }
+}
+
+/** Counts reflect the same ordered occurrence matching used by CsvImport.apply. */
+data class ImportCounts(
+    val total: Int,
+    val valid: Int,
+    val new: Int,
+    val duplicates: Int,
+    val invalid: Int,
+    val excluded: Int,
+) {
+    fun importing(skipDuplicates: Boolean) = if (skipDuplicates) new else new + duplicates
+}
+
+fun importCounts(
+    data: ImportPreview,
+    categories: List<Category>,
+    existing: List<Entry>,
+    range: TransferRange,
+    replace: Boolean,
+): ImportCounts {
+    val selected = data.bills.filter { range.contains(it) }
+    val remaining = if (replace) existing.filterNot { range.contains(it) } else existing
+    val duplicates = CsvImport.duplicateFlags(categories, remaining, selected).count { it }
+    return ImportCounts(data.totalRows, data.bills.size, selected.size - duplicates, duplicates,
+        data.errors.size, data.bills.size - selected.size)
 }

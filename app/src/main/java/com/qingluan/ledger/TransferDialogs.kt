@@ -68,6 +68,7 @@ fun TransferTools(vm: LedgerViewModel) {
                             { password = it.take(128) },
                             label = { Text("备份密码") },
                             visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Password),
                         )
                 }
             },
@@ -236,7 +237,9 @@ fun ExportDialog(vm: LedgerViewModel, fixedIds: Set<Long>? = null, dismiss: () -
                 )
                 if (!valid) Text("开始日期不能晚于结束日期", color = MaterialTheme.colorScheme.error)
                 if (kind != "csv" && complete)
-                    ConfigSwitch("包含个人资料与设置", includePersonal) { includePersonal = it }
+                    ConfigSwitch("完整备份（资料、回收站、周期规则）", includePersonal) { includePersonal = it }
+                if (kind != "csv" && (!complete || !includePersonal))
+                    Text("仅导出所选账单及分类，不包含回收站和周期规则。", style = MaterialTheme.typography.bodySmall)
                 if (kind == "csv") {
                     Text("日期、时间、收支、分类、币种、金额为必需列", style = MaterialTheme.typography.labelSmall)
                     ConfigSwitch("备注列", notes) { notes = it }
@@ -255,12 +258,14 @@ fun ExportDialog(vm: LedgerViewModel, fixedIds: Set<Long>? = null, dismiss: () -
                         { password = it.take(128) },
                         label = { Text("密码（至少8位）") },
                         visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Password),
                     )
                     OutlinedTextField(
                         confirmPassword,
                         { confirmPassword = it.take(128) },
                         label = { Text("确认密码") },
                         visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Password),
                     )
                     Text("密码无法找回，请妥善保存。", style = MaterialTheme.typography.labelSmall)
                 }
@@ -344,7 +349,29 @@ fun ExportDialog(vm: LedgerViewModel, fixedIds: Set<Long>? = null, dismiss: () -
 }
 
 @Composable
-private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -> Unit) {
+internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -> Unit) {
+    val rows by vm.entries.collectAsState()
+    val categories by vm.categories.collectAsState()
+    val restoreDetails by
+        produceState<Triple<Int, Int, Boolean>?>(null, data.fullJson) {
+            val raw = data.fullJson
+            if (raw != null) {
+                value =
+                    withContext(Dispatchers.Default) {
+                        // decodeTransfer already validated the complete document; inspect metadata
+                        // only.
+                        val json = org.json.JSONObject(raw)
+                        Triple(
+                            json.optJSONArray("trash")?.length() ?: 0,
+                            json.optJSONArray("recurring")?.length() ?: 0,
+                            !json.has("trash") || !json.has("recurring"),
+                        )
+                    }
+            }
+        }
+    var acceptValidRows by remember(data) { mutableStateOf(false) }
+    var showSamples by remember(data) { mutableStateOf(false) }
+    var showErrors by remember(data) { mutableStateOf(false) }
     var scope by remember { mutableStateOf("all") }
     var from by remember { mutableStateOf(data.from ?: LocalDate.now()) }
     var to by remember { mutableStateOf(data.to ?: LocalDate.now()) }
@@ -368,6 +395,10 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
         remember(range, data) {
             if (range == null) emptyList() else data.bills.filter { range.contains(it) }
         }
+    val counts =
+        remember(data, categories, rows, range, mode) {
+            range?.let { importCounts(data, categories, rows, it, mode == "replace") }
+        }
     val modes = linkedMapOf("append" to "追加账单", "replace" to "替换所选范围")
     if (data.fullJson != null && scope == "all" && type == "all" && currency == "all")
         modes["full"] = "完整恢复（覆盖本地数据）"
@@ -380,7 +411,7 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
         val skipExisting = skip
         vm.action {
             try {
-                vm.undo.value = emptyList()
+                vm.clearUndo()
                 if (chosenMode == "full") {
                     vm.restoreData(data.fullJson!!)
                     vm.message.value = "完整恢复完成"
@@ -408,7 +439,30 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
                 Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("文件 ${data.bills.size} 笔 · ${data.from ?: "—"} 至 ${data.to ?: "—"}")
+                Text("文件 ${data.totalRows} 笔 · 有效 ${data.bills.size} · 无效 ${data.errors.size}")
+                Text(
+                    "${data.from ?: "—"} 至 ${data.to ?: "—"}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (data.errors.isNotEmpty()) {
+                    TextButton(onClick = { showErrors = !showErrors }) {
+                        Text(if (showErrors) "收起无效行" else "查看无效行")
+                    }
+                    if (showErrors) {
+                        data.errors.take(20).forEach {
+                            Text(
+                                "第${it.line}行：${it.reason}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                        if (data.errors.size > 20)
+                            Text("仅显示前20条错误", style = MaterialTheme.typography.labelSmall)
+                    }
+                    ConfigSwitch("仅导入有效行（${data.bills.size}笔）", acceptValidRows) {
+                        acceptValidRows = it
+                    }
+                }
                 RangeControls(
                     scope,
                     { scope = it },
@@ -423,9 +477,57 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
                     data.bills.map { it.currency }.distinct(),
                     false,
                 )
-                Text(
-                    "将导入 ${bills.size} 笔 · ${bills.map{it.currency}.distinct().joinToString(" / ")}"
-                )
+                counts?.let {
+                    if (mode == "full") {
+                        Text("完整恢复 ${data.bills.size} 笔")
+                        restoreDetails?.let { details ->
+                            Text(
+                                "回收站 ${details.first} 笔 · 周期记账 ${details.second} 项",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (details.third)
+                                Text(
+                                    "旧备份未包含的回收站或周期记账将清空本地对应数据。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                        }
+                    } else {
+                        Text("新增 ${it.new} · 重复 ${it.duplicates} · 筛选排除 ${it.excluded}")
+                        Text("将导入 ${it.importing(skip)} 笔")
+                        if (mode == "replace")
+                            Text(
+                                "将替换本地 ${rows.count { row -> range?.contains(row) == true }} 笔",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                    }
+                }
+                if (bills.isNotEmpty()) {
+                    TextButton(onClick = { showSamples = !showSamples }) {
+                        Text(if (showSamples) "收起账单预览" else "查看账单预览")
+                    }
+                    if (showSamples) {
+                        bills.take(5).forEach { bill ->
+                            HorizontalDivider()
+                            Text(
+                                "${java.time.Instant.ofEpochMilli(bill.occurredAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate()} · ${if (bill.type == "INCOME") "收入" else "支出"}",
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                            Text(
+                                "${bill.category.take(40)} · ${bill.currency} ${Money.text(bill.amount, bill.currency)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2,
+                            )
+                            if (bill.note.isNotBlank())
+                                Text(
+                                    bill.note.take(80),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                )
+                        }
+                        if (bills.size > 5)
+                            Text("仅显示前5笔", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 if (!valid) Text("开始日期不能晚于结束日期", color = MaterialTheme.colorScheme.error)
                 ConfigChoice("导入方式", mode, modes) { mode = it }
                 if (mode != "full")
@@ -440,7 +542,11 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
         },
         confirmButton = {
             TextButton(
-                enabled = valid && !working && (mode == "full" || bills.isNotEmpty()),
+                enabled =
+                    valid &&
+                        !working &&
+                        (data.errors.isEmpty() || acceptValidRows) &&
+                        (mode == "full" || bills.isNotEmpty()),
                 onClick = { if (mode == "append") runImport() else confirm = true },
             ) {
                 Text(if (working) "处理中" else "导入")
@@ -452,7 +558,12 @@ private fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () -
         GlassAlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text(if (mode == "full") "覆盖全部本地数据？" else "替换所选范围的账单？") },
-            text = { Text(if (mode == "full") "当前账单、分类及备份包含的资料设置将被替换。" else "范围外账单将保留。") },
+            text = {
+                Text(
+                    if (mode == "full") "当前账单、分类、回收站、周期记账及备份包含的资料设置将被替换。旧备份未包含的回收站或周期记账将清空本地对应数据。"
+                    else "范围外账单将保留。"
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {

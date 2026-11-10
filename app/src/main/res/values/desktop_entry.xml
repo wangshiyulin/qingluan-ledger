@@ -1,0 +1,4 @@
+<resources>
+    <string name="desktop_entry_expense">记支出</string>
+    <string name="desktop_entry_income">记收入</string>
+</resources>

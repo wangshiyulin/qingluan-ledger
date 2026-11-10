@@ -29,6 +29,7 @@ fun HomeToolbar(
     closeSearch: () -> Unit,
     searchBounds: (Rect) -> Unit,
     filter: () -> Unit,
+    filtered: Boolean = false,
 ) {
     val effects = LocalEffects.current
     val feedback = rememberAppFeedback()
@@ -41,14 +42,14 @@ fun HomeToolbar(
             search,
             modifier = Modifier.weight(1f),
             transitionSpec = {
-                (fadeIn(tween(if (effects.motion) 100 else 0)) +
+                (fadeIn(tween(if (motionAllowed(effects)) 100 else 0)) +
                     scaleIn(
-                        tween(if (effects.motion) 120 else 0),
+                        tween(if (motionAllowed(effects)) 120 else 0),
                         initialScale = .88f,
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, .5f),
                     )) togetherWith
-                    (fadeOut(tween(if (effects.motion) 60 else 0)) +
-                        scaleOut(tween(if (effects.motion) 60 else 0), targetScale = .96f))
+                    (fadeOut(tween(if (motionAllowed(effects)) 60 else 0)) +
+                        scaleOut(tween(if (motionAllowed(effects)) 60 else 0), targetScale = .96f))
             },
             label = "搜索岛",
         ) { expanded ->
@@ -58,7 +59,7 @@ fun HomeToolbar(
                     query,
                     change,
                     Modifier.fillMaxWidth()
-                        .height(52.dp)
+                        .heightIn(min=52.dp)
                         .focusRequester(focus)
                         .testTag("search-island")
                         .onGloballyPositioned { searchBounds(it.boundsInWindow()) },
@@ -103,7 +104,7 @@ fun HomeToolbar(
                 filter()
             }
         ) {
-            Icon(Icons.Outlined.Tune, "筛选")
+            Icon(Icons.Outlined.Tune, "筛选",tint=if(filtered)MaterialTheme.colorScheme.primary else LocalContentColor.current)
         }
     }
 }

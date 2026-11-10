@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -63,6 +64,23 @@ fun CurrencyPicker(code: String, dismiss: () -> Unit, choose: (String) -> Unit) 
                                     feedback()
                                     choose(c.code)
                                 },
+                            leadingContent = {
+                                val flag =
+                                    remember(c.code) {
+                                        currencyFlag(c.code)?.takeIf {
+                                            android.graphics.Paint().hasGlyph(it)
+                                        }
+                                    }
+                                Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                                    if (flag != null)
+                                        Text(
+                                            flag,
+                                            Modifier.clearAndSetSemantics {},
+                                            style = MaterialTheme.typography.titleLarge,
+                                        )
+                                    else Icon(Icons.Outlined.Public, null, Modifier.size(24.dp))
+                                }
+                            },
                             headlineContent = { Text(c.code) },
                             supportingContent = { Text(c.name) },
                             trailingContent = {

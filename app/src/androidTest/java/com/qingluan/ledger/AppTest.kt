@@ -17,7 +17,10 @@ class AppTest {
                     >()
                 kotlinx.coroutines.runBlocking {
                     val repository = Repository(context)
+                    repository.dao.clearRecurring()
+                    repository.dao.clearTrash()
                     repository.dao.clear()
+                    repository.dao.clearCategories()
                     repository.db.close()
                 }
                 kotlinx.coroutines.runBlocking {

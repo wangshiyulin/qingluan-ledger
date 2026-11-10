@@ -54,6 +54,26 @@ data class AppAppearance(
             }
 }
 
+fun appearanceFromPreferences(
+    prefs: androidx.datastore.preferences.core.Preferences
+): AppAppearance {
+    val palette =
+        prefs[androidx.datastore.preferences.core.stringPreferencesKey("palette")].takeIf {
+            it in paletteNames
+        } ?: "system"
+    val font =
+        prefs[androidx.datastore.preferences.core.stringPreferencesKey("fontSize")].takeIf {
+            it in fontSizes
+        } ?: "system"
+    return AppAppearance(
+        palette,
+        prefs[androidx.datastore.preferences.core.booleanPreferencesKey("pureBlack")] ?: false,
+        font,
+        (prefs[androidx.datastore.preferences.core.intPreferencesKey("customFontPercent")] ?: 100)
+            .coerceIn(75, 160),
+    )
+}
+
 val LocalAppearance = staticCompositionLocalOf { AppAppearance() }
 
 fun paletteColor(key: String) =
@@ -113,62 +133,67 @@ fun richerDarkColors(scheme: ColorScheme): ColorScheme =
 
 @Composable
 fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance): ColorScheme {
-    val seed = paletteColor(appearance.palette)
-    val primary = if (dark) lerp(seed, Color.White, .5f) else seed
-    val container = if (dark) lerp(seed, Color.Black, .65f) else lerp(seed, Color.White, .85f)
-    val scheme =
-        if (appearance.palette == "system" && Build.VERSION.SDK_INT >= 31) {
-            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        } else if (dark)
-            darkColorScheme(
-                primary = primary,
-                onPrimary = Color.Black,
-                primaryContainer = container,
-                onPrimaryContainer = Color.White,
-                secondary = primary,
-                secondaryContainer = container,
-                onSecondaryContainer = Color.White,
-            )
-        else
-            lightColorScheme(
-                primary = seed,
-                primaryContainer = container,
-                onPrimaryContainer = lerp(seed, Color.Black, .5f),
-                secondary = seed,
-                secondaryContainer = container,
-                onSecondaryContainer = lerp(seed, Color.Black, .5f),
-                background = lerp(seed, Color.White, .97f),
-                surface = lerp(seed, Color.White, .97f),
-            )
-    val adjusted = if (dark) readableDarkContainers(scheme) else scheme
-    val themed =
-        if (dark && appearance.pureBlack)
-            adjusted.copy(
-                background = Color.Black,
-                surface = Color.Black,
-                surfaceContainerLowest = Color.Black,
-                surfaceContainerLow = Color(0xFF101010),
-                surfaceContainer = Color(0xFF141414),
-                surfaceContainerHigh = Color(0xFF1A1A1A),
-                surfaceContainerHighest = Color(0xFF222222),
-            )
-        else if (
-            !dark && appearance.palette in setOf("mint", "sky", "lilac", "peach", "oat", "sakura")
-        ) {
-            val pastel = palettePreviewColor(appearance.palette)
-            adjusted.copy(
-                background = lerp(pastel, Color.White, .84f),
-                surface = lerp(pastel, Color.White, .84f),
-                primaryContainer = lerp(pastel, Color.White, .2f),
-                secondaryContainer = lerp(pastel, Color.White, .3f),
-                surfaceContainerLowest = lerp(pastel, Color.White, .96f),
-                surfaceContainerLow = lerp(pastel, Color.White, .76f),
-                surfaceContainer = lerp(pastel, Color.White, .65f),
-                surfaceContainerHigh = lerp(pastel, Color.White, .52f),
-                surfaceContainerHighest = lerp(pastel, Color.White, .42f),
-            )
-        } else adjusted
-    return if (dark) richerDarkColors(themed) else richerLightColors(themed)
+    // Font changes do not invalidate the colour scheme or query platform dynamic colours again.
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    return remember(context, dark, appearance.palette, appearance.pureBlack, configuration) {
+        val seed = paletteColor(appearance.palette)
+        val primary = if (dark) lerp(seed, Color.White, .5f) else seed
+        val container = if (dark) lerp(seed, Color.Black, .65f) else lerp(seed, Color.White, .85f)
+        val scheme =
+            if (appearance.palette == "system" && Build.VERSION.SDK_INT >= 31) {
+                if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            } else if (dark)
+                darkColorScheme(
+                    primary = primary,
+                    onPrimary = Color.Black,
+                    primaryContainer = container,
+                    onPrimaryContainer = Color.White,
+                    secondary = primary,
+                    secondaryContainer = container,
+                    onSecondaryContainer = Color.White,
+                )
+            else
+                lightColorScheme(
+                    primary = seed,
+                    primaryContainer = container,
+                    onPrimaryContainer = lerp(seed, Color.Black, .5f),
+                    secondary = seed,
+                    secondaryContainer = container,
+                    onSecondaryContainer = lerp(seed, Color.Black, .5f),
+                    background = lerp(seed, Color.White, .97f),
+                    surface = lerp(seed, Color.White, .97f),
+                )
+        val adjusted = if (dark) readableDarkContainers(scheme) else scheme
+        val themed =
+            if (dark && appearance.pureBlack)
+                adjusted.copy(
+                    background = Color.Black,
+                    surface = Color.Black,
+                    surfaceContainerLowest = Color.Black,
+                    surfaceContainerLow = Color(0xFF101010),
+                    surfaceContainer = Color(0xFF141414),
+                    surfaceContainerHigh = Color(0xFF1A1A1A),
+                    surfaceContainerHighest = Color(0xFF222222),
+                )
+            else if (
+                !dark &&
+                    appearance.palette in setOf("mint", "sky", "lilac", "peach", "oat", "sakura")
+            ) {
+                val pastel = palettePreviewColor(appearance.palette)
+                adjusted.copy(
+                    background = lerp(pastel, Color.White, .84f),
+                    surface = lerp(pastel, Color.White, .84f),
+                    primaryContainer = lerp(pastel, Color.White, .2f),
+                    secondaryContainer = lerp(pastel, Color.White, .3f),
+                    surfaceContainerLowest = lerp(pastel, Color.White, .96f),
+                    surfaceContainerLow = lerp(pastel, Color.White, .76f),
+                    surfaceContainer = lerp(pastel, Color.White, .65f),
+                    surfaceContainerHigh = lerp(pastel, Color.White, .52f),
+                    surfaceContainerHighest = lerp(pastel, Color.White, .42f),
+                )
+            } else adjusted
+        if (dark) richerDarkColors(themed) else richerLightColors(themed)
+    }
 }
 
 fun appearanceTypography(appearance: AppAppearance): Typography {

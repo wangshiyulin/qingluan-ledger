@@ -20,22 +20,35 @@ data class PersonalBackup(
     val effects: UiEffects = UiEffects(),
     val avatar: ByteArray? = null,
     val experience: Experience = Experience(),
+    val trashRetentionDays: Int = 30,
+    val searchPresets: String = "{}",
 )
 
 data class CompleteSnapshot(
     val categories: List<Category>,
     val entries: List<Entry>,
     val personal: PersonalBackup?,
+    val trash: List<TrashRecord> = emptyList(),
+    val recurring: List<RecurringBill> = emptyList(),
 )
 
 object CompleteBackup {
     const val MAX_BYTES = 16 * 1024 * 1024
 
-    fun encode(categories: List<Category>, entries: List<Entry>, personal: PersonalBackup): String {
+    fun encode(
+        categories: List<Category>,
+        entries: List<Entry>,
+        personal: PersonalBackup,
+        trash: List<TrashRecord> = emptyList(),
+        recurring: List<RecurringBill> = emptyList(),
+    ): String {
+        require(entries.size + trash.size <= 100000 && recurring.size <= 1000) { "备份记录数超过限制" }
         val a = personal.appearance
         val p =
             JSONObject()
                 .put("nickname", personal.nickname)
+                .put("trashRetentionDays", personal.trashRetentionDays)
+                .put("searchPresets", JSONObject(personal.searchPresets))
                 .put("theme", personal.theme)
                 .put("palette", a.palette)
                 .put("pureBlack", a.pureBlack)
@@ -51,7 +64,17 @@ object CompleteBackup {
                 )
         val raw =
             JSONObject(Backup.encode(categories, entries))
-                .put("formatVersion", 6)
+                .put("formatVersion", 7)
+                .put(
+                    "trash",
+                    org.json.JSONArray().apply { trash.forEach { put(ArchiveJson.trash(it)) } },
+                )
+                .put(
+                    "recurring",
+                    org.json.JSONArray().apply {
+                        recurring.forEach { put(ArchiveJson.recurring(it)) }
+                    },
+                )
                 .put("personal", p)
                 .toString()
         require(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "完整备份超过16MB限制" }
@@ -60,10 +83,11 @@ object CompleteBackup {
 
     fun decode(raw: String): CompleteSnapshot {
         require(raw.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "备份超过16MB限制" }
+        validateTransferJson(raw)
         val j = JSONObject(raw)
         val version = j.get("formatVersion")
         require(
-            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..6L
+            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..7L
         ) {
             "不支持的备份版本"
         }
@@ -112,6 +136,40 @@ object CompleteBackup {
                     image.recycle()
                 }
             }
+        val trash =
+            if (j.getLong("formatVersion") >= 7) {
+                val items = j.getJSONArray("trash")
+                require(items.length() + entries.size <= 100000) { "回收站记录超过限制" }
+                (0 until items.length()).map { ArchiveJson.trash(items.getJSONObject(it)) }
+            } else emptyList()
+        val recurring =
+            if (j.getLong("formatVersion") >= 7) {
+                val items = j.getJSONArray("recurring")
+                require(items.length() <= 1000) { "周期规则超过限制" }
+                (0 until items.length()).map {
+                    ArchiveJson.recurring(items.getJSONObject(it)).also { rule ->
+                        require(rule.id > 0)
+                        validateRecurring(rule, categories)
+                    }
+                }
+            } else emptyList()
+        require(
+            trash.map { it.id }.distinct().size == trash.size &&
+                recurring.map { it.id }.distinct().size == recurring.size
+        ) {
+            "备份记录ID重复"
+        }
+        val retention =
+            if (j.getLong("formatVersion") >= 7)
+                Math.toIntExact(ArchiveJson.long(p, "trashRetentionDays"))
+            else 30
+        require(retention in listOf(0, 7, 30, 90)) { "回收站保留期限无效" }
+        val savedSearches =
+            if (j.getLong("formatVersion") >= 7) p.getJSONObject("searchPresets").toString()
+            else "{}"
+        require(searchPresets(savedSearches).size == JSONObject(savedSearches).length()) {
+            "保存的搜索条件无效"
+        }
         return CompleteSnapshot(
             categories,
             entries,
@@ -122,7 +180,11 @@ object CompleteBackup {
                 UiEffects(p.getBoolean("motion"), p.getBoolean("haptics")),
                 avatar,
                 Experience.decode(p.optJSONObject("experience") ?: JSONObject()),
+                retention,
+                savedSearches,
             ),
+            trash,
+            recurring,
         )
     }
 }
@@ -161,21 +223,24 @@ class LocalDataManager(private val context: Context, private val repository: Rep
             PersonalBackup(
                 prefs[stringPreferencesKey("nickname")] ?: "",
                 prefs[stringPreferencesKey("theme")] ?: "system",
-                AppAppearance(
-                    prefs[stringPreferencesKey("palette")] ?: "system",
-                    prefs[booleanPreferencesKey("pureBlack")] ?: false,
-                    prefs[stringPreferencesKey("fontSize")] ?: "system",
-                    (prefs[intPreferencesKey("customFontPercent")] ?: 100).coerceIn(75, 160),
-                ),
+                appearanceFromPreferences(prefs),
                 UiEffects(
                     prefs[booleanPreferencesKey("motion")] ?: true,
                     prefs[booleanPreferencesKey("haptics")] ?: true,
                 ),
                 image,
                 Experience.decode(JSONObject(prefs[stringPreferencesKey("experience")] ?: "{}")),
+                prefs[intPreferencesKey("trashRetentionDays")] ?: 30,
+                prefs[stringPreferencesKey("searchPresets")] ?: "{}",
             )
         return repository.db.withTransaction {
-            CompleteSnapshot(repository.dao.allCategories(), repository.dao.allEntries(), p)
+            CompleteSnapshot(
+                repository.dao.allCategories(),
+                repository.dao.allEntries(),
+                p,
+                repository.dao.allTrash(),
+                repository.dao.allRecurring(),
+            )
         }
     }
 
@@ -183,7 +248,13 @@ class LocalDataManager(private val context: Context, private val repository: Rep
         recover()
         val data = snapshot()
         return withContext(Dispatchers.Default) {
-            CompleteBackup.encode(data.categories, data.entries, data.personal!!)
+            CompleteBackup.encode(
+                data.categories,
+                data.entries,
+                data.personal!!,
+                data.trash,
+                data.recurring,
+            )
         }
     }
 
@@ -204,7 +275,13 @@ class LocalDataManager(private val context: Context, private val repository: Rep
         withContext(Dispatchers.IO) {
             write(
                 journal,
-                CompleteBackup.encode(old.categories, old.entries, old.personal!!)
+                CompleteBackup.encode(
+                        old.categories,
+                        old.entries,
+                        old.personal!!,
+                        old.trash,
+                        old.recurring,
+                    )
                     .toByteArray(Charsets.UTF_8),
             )
         }
@@ -235,16 +312,22 @@ class LocalDataManager(private val context: Context, private val repository: Rep
 
     private suspend fun apply(data: CompleteSnapshot) {
         repository.db.withTransaction {
+            repository.dao.clearRecurring()
+            repository.dao.clearTrash()
             repository.dao.clear()
             repository.dao.clearCategories()
             data.categories.forEach { repository.dao.add(it) }
             data.entries.forEach { repository.dao.insert(it) }
+            data.trash.forEach { repository.dao.addTrash(it) }
+            data.recurring.forEach { repository.dao.addRecurring(it) }
             data.personal?.let { p ->
                 withContext(Dispatchers.IO) {
                     if (p.avatar == null) remove(avatar) else write(avatar, p.avatar)
                 }
                 context.preferences.edit { prefs ->
                     prefs[stringPreferencesKey("experience")] = p.experience.json().toString()
+                    prefs[intPreferencesKey("trashRetentionDays")] = p.trashRetentionDays
+                    prefs[stringPreferencesKey("searchPresets")] = p.searchPresets
                     prefs[stringPreferencesKey("nickname")] = p.nickname
                     prefs[stringPreferencesKey("theme")] = p.theme
                     prefs[stringPreferencesKey("palette")] = p.appearance.palette
@@ -277,7 +360,13 @@ class LocalDataManager(private val context: Context, private val repository: Rep
         withContext(Dispatchers.IO) {
             write(
                 journal,
-                CompleteBackup.encode(old.categories, old.entries, old.personal!!)
+                CompleteBackup.encode(
+                        old.categories,
+                        old.entries,
+                        old.personal!!,
+                        old.trash,
+                        old.recurring,
+                    )
                     .toByteArray(Charsets.UTF_8),
             )
         }

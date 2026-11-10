@@ -14,7 +14,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "com.qingluan.ledger"
  compileSdk = 35
- defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 114; versionName = "1.0.5"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+ defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 107; versionName = "1.0.7"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
  buildTypes {
   getByName("release") {
    isMinifyEnabled = true
@@ -42,6 +42,7 @@ dependencies {
  implementation("androidx.datastore:datastore-preferences:1.1.1")
  implementation("androidx.exifinterface:exifinterface:1.4.1")
  implementation("dev.chrisbanes.haze:haze:1.1.1")
+ implementation("com.squareup.okhttp3:okhttp:4.12.0")
  testImplementation("junit:junit:4.13.2")
  testImplementation("org.json:json:20240303")
  testImplementation("org.robolectric:robolectric:4.17")

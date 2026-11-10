@@ -18,6 +18,62 @@ interface LedgerDao {
     @Query("SELECT * FROM transactions ORDER BY occurredAt DESC, id DESC")
     fun entries(): Flow<List<Entry>>
 
+    @Query("SELECT * FROM transactions WHERE id=:id") suspend fun entry(id: Long): Entry?
+
+    @Query("SELECT * FROM transactions WHERE id IN (:ids)")
+    suspend fun entriesByIds(ids: List<Long>): List<Entry>
+
+    @Query("SELECT id FROM transactions") suspend fun entryIds(): List<Long>
+
+    @Query("DELETE FROM transactions WHERE id IN (:ids)") suspend fun deleteIds(ids: List<Long>)
+
+    @Query("SELECT COUNT(*) FROM trash_entries") suspend fun trashCount(): Int
+
+    @Query("SELECT * FROM trash_entries WHERE id IN (:ids)")
+    suspend fun trashByIds(ids: List<Long>): List<TrashRecord>
+
+    @Insert suspend fun addTrashList(records: List<TrashRecord>): List<Long>
+
+    @Query("SELECT * FROM trash_entries ORDER BY deletedAt DESC, id DESC")
+    fun trashEntries(): Flow<List<TrashRecord>>
+
+    @Query("SELECT * FROM trash_entries ORDER BY deletedAt DESC, id DESC")
+    suspend fun allTrash(): List<TrashRecord>
+
+    @Query("SELECT * FROM trash_entries WHERE id=:id") suspend fun trash(id: Long): TrashRecord?
+
+    @Insert suspend fun addTrash(record: TrashRecord): Long
+
+    @Query("DELETE FROM trash_entries WHERE id=:id") suspend fun deleteTrash(id: Long)
+
+    @Query("DELETE FROM trash_entries") suspend fun clearTrash()
+
+    @Query("DELETE FROM trash_entries WHERE deletedAt < :cutoff")
+    suspend fun pruneTrash(cutoff: Long)
+
+    @Query("SELECT * FROM recurring_bills ORDER BY nextDate, id")
+    fun recurringBills(): Flow<List<RecurringBill>>
+
+    @Query("SELECT * FROM recurring_bills ORDER BY nextDate, id")
+    suspend fun allRecurring(): List<RecurringBill>
+
+    @Query("SELECT * FROM recurring_bills WHERE id=:id")
+    suspend fun recurring(id: Long): RecurringBill?
+
+    @Insert suspend fun addRecurring(rule: RecurringBill): Long
+
+    @Update suspend fun updateRecurring(rule: RecurringBill)
+
+    @Query("DELETE FROM recurring_bills WHERE id=:id") suspend fun deleteRecurring(id: Long)
+
+    @Query("DELETE FROM recurring_bills") suspend fun clearRecurring()
+
+    @Query("SELECT COUNT(*) FROM recurring_bills WHERE categoryId=:id")
+    suspend fun recurringReferences(id: Long): Int
+
+    @Query("UPDATE recurring_bills SET categoryId=:target WHERE categoryId=:source")
+    suspend fun migrateRecurring(source: Long, target: Long)
+
     @Query("SELECT * FROM categories ORDER BY sortOrder,id") fun categories(): Flow<List<Category>>
 
     @Query("SELECT * FROM transactions") suspend fun allEntries(): List<Entry>
@@ -56,11 +112,32 @@ interface LedgerDao {
     @Query("DELETE FROM categories") suspend fun clearCategories()
 }
 
-@Database(entities = [Entry::class, Category::class], version = 3, exportSchema = true)
+@Database(
+    entities = [Entry::class, Category::class, TrashRecord::class, RecurringBill::class],
+    version = 4,
+    exportSchema = true,
+)
 abstract class LedgerDb : RoomDatabase() {
     abstract fun dao(): LedgerDao
 
     companion object {
+        val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS trash_entries (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, entryJson TEXT NOT NULL, categoryName TEXT NOT NULL, iconKey TEXT NOT NULL, deletedAt INTEGER NOT NULL)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_trash_entries_deletedAt ON trash_entries(deletedAt)"
+                    )
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS recurring_bills (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, amount INTEGER NOT NULL, currencyCode TEXT NOT NULL, categoryId INTEGER NOT NULL, note TEXT NOT NULL, nextDate TEXT NOT NULL, frequency TEXT NOT NULL, interval INTEGER NOT NULL, anchorDay INTEGER NOT NULL, anchorMonth INTEGER NOT NULL, enabled INTEGER NOT NULL, FOREIGN KEY(categoryId) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE RESTRICT)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_recurring_bills_categoryId ON recurring_bills(categoryId)"
+                    )
+                }
+            }
         val MIGRATION_2_3 =
             object : Migration(2, 3) {
                 override fun migrate(db: SupportSQLiteDatabase) {
@@ -84,7 +161,7 @@ abstract class LedgerDb : RoomDatabase() {
 class Repository(context: Context, databaseName: String = "qingluan.db") {
     val db =
         Room.databaseBuilder(context, LedgerDb::class.java, databaseName)
-            .addMigrations(LedgerDb.MIGRATION_1_2, LedgerDb.MIGRATION_2_3)
+            .addMigrations(LedgerDb.MIGRATION_1_2, LedgerDb.MIGRATION_2_3, LedgerDb.MIGRATION_3_4)
             .build()
     val dao = db.dao()
 
@@ -155,9 +232,10 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
         db.withTransaction {
             val same = dao.allCategories().filter { it.type == c.type && it.id != c.id }
             require(same.isNotEmpty()) { "每种类型至少保留一个分类" }
-            if (dao.references(c.id) > 0) {
+            if (dao.references(c.id) > 0 || dao.recurringReferences(c.id) > 0) {
                 require(same.any { it.id == target }) { "请先选择历史账单迁移分类" }
                 dao.migrate(c.id, target!!, System.currentTimeMillis())
+                dao.migrateRecurring(c.id, target)
             }
             dao.deleteCategory(c.id)
         }
@@ -196,6 +274,8 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
     suspend fun restore(raw: String) {
         val (cs, es) = withContext(Dispatchers.Default) { Backup.decode(raw) }
         db.withTransaction {
+            dao.clearRecurring()
+            dao.clearTrash()
             dao.clear()
             dao.clearCategories()
             cs.forEach { dao.add(it) }

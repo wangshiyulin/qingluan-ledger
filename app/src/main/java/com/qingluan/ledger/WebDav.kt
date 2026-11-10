@@ -10,15 +10,20 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.security.KeyStore
+import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
-/** Fixed file beneath a user-selected existing WebDAV collection. No redirects or cleartext. */
+/** User-selected existing WebDAV collection. No redirects or cleartext. */
 data class WebDavConfig(val address: String, val username: String, val password: String) {
     fun collection(): URL {
         val uri =
@@ -161,9 +166,19 @@ class WebDavClient(
         }
     }
 
-    suspend fun download(): RemotePayload =
-        request(config.file(), "GET") { c ->
+    suspend fun download(): RemotePayload = downloadFile(config.file(), null)
+
+    suspend fun download(entry: WebDavHistoryEntry): RemotePayload {
+        require(WebDavHistory.allowed(entry.filename)) { "远端备份文件名无效" }
+        require(WebDavHistory.strongEtag(entry.etag)) { "服务器未提供有效 ETag，无法安全选择该备份" }
+        return downloadFile(WebDavHistory.url(config, entry.filename), entry.etag)
+    }
+
+    private suspend fun downloadFile(url: URL, etag: String?): RemotePayload =
+        request(url, "GET") { c ->
+            if (etag != null) c.setRequestProperty("If-Match", etag)
             requireStatus(c.responseCode, setOf(200))
+            if (etag != null) require(c.getHeaderField("ETag") == etag) { "远端备份已变化，请刷新历史后重新操作" }
             require(c.contentLengthLong <= CompleteBackup.MAX_BYTES) { "远端文件超过16MB" }
             val bytes =
                 c.inputStream.use { input ->
@@ -186,6 +201,115 @@ class WebDavClient(
             }
             RemotePayload(raw, metadata(c))
         }
+
+    /** PROPFIND needs a transport that supports WebDAV verbs on Android and on the JVM. */
+    suspend fun history(): List<WebDavHistoryEntry> =
+        withContext(Dispatchers.IO) {
+            val url = config.collection()
+            val http =
+                OkHttpClient.Builder()
+                    .followRedirects(false)
+                    .followSslRedirects(false)
+                    .connectTimeout(15, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .callTimeout(45, TimeUnit.SECONDS)
+                    .build()
+            val xml =
+                """<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getetag/><d:getlastmodified/><d:getcontentlength/><d:resourcetype/></d:prop></d:propfind>"""
+            val req =
+                Request.Builder()
+                    .url(url)
+                    .header(
+                        "Authorization",
+                        "Basic " +
+                            Base64.encodeToString(
+                                "${config.username}:${config.password}".toByteArray(Charsets.UTF_8),
+                                Base64.NO_WRAP,
+                            ),
+                    )
+                    .header("Depth", "1")
+                    .header("Accept-Encoding", "identity")
+                    .header("Cache-Control", "no-cache")
+                    .method(
+                        "PROPFIND",
+                        xml.toRequestBody("application/xml; charset=utf-8".toMediaType()),
+                    )
+                    .build()
+            try {
+                http.newCall(req).execute().use { response ->
+                    if (response.code in setOf(405, 501)) error("服务器不支持备份历史（PROPFIND），可使用旧版备份恢复")
+                    requireStatus(response.code, setOf(207))
+                    val body = response.body ?: error("远端备份列表为空")
+                    require(body.contentLength() <= WebDavHistory.MAX_LIST_BYTES) { "远端备份列表过大" }
+                    val bytes =
+                        body.byteStream().use { input ->
+                            val out = java.io.ByteArrayOutputStream()
+                            val buffer = ByteArray(8192)
+                            while (true) {
+                                val n = input.read(buffer)
+                                if (n < 0) break
+                                require(out.size() + n <= WebDavHistory.MAX_LIST_BYTES) {
+                                    "远端备份列表过大"
+                                }
+                                out.write(buffer, 0, n)
+                            }
+                            out.toByteArray()
+                        }
+                    try {
+                        WebDavHistory.parse(url, bytes)
+                    } catch (e: IllegalArgumentException) {
+                        throw e
+                    } catch (_: Exception) {
+                        error("远端未返回有效 WebDAV 列表")
+                    }
+                }
+            } catch (_: java.net.SocketTimeoutException) {
+                error("连接超时，请检查服务器后重试")
+            } catch (_: javax.net.ssl.SSLException) {
+                error("HTTPS 证书验证失败")
+            } catch (_: java.io.IOException) {
+                error("网络连接失败，请检查地址和网络")
+            } finally {
+                http.connectionPool.evictAll()
+                http.dispatcher.executorService.shutdown()
+            }
+        }
+
+    suspend fun uploadHistory(encrypted: String): String {
+        val filename = WebDavHistory.filename()
+        val bytes = encrypted.toByteArray(Charsets.UTF_8)
+        require(bytes.size <= CompleteBackup.MAX_BYTES) { "备份超过16MB" }
+        request(WebDavHistory.url(config, filename), "PUT") { c ->
+            c.doOutput = true
+            c.setRequestProperty("Content-Type", "application/octet-stream")
+            c.setRequestProperty("If-None-Match", "*")
+            c.setFixedLengthStreamingMode(bytes.size)
+            c.outputStream.use { it.write(bytes) }
+            requireStatus(c.responseCode, setOf(200, 201, 204))
+        }
+        return filename
+    }
+
+    suspend fun delete(entry: WebDavHistoryEntry) {
+        require(WebDavHistory.owned(entry.filename)) { "只能删除青鸾历史备份，旧版备份受保护" }
+        require(WebDavHistory.strongEtag(entry.etag)) { "服务器未提供有效 ETag，无法安全删除" }
+        request(WebDavHistory.url(config, entry.filename), "DELETE") { c ->
+            c.setRequestProperty("If-Match", entry.etag)
+            requireStatus(c.responseCode, setOf(200, 204))
+        }
+    }
+
+    /** A complete bounded listing is mandatory; legacy and unrelated files are never deleted. */
+    suspend fun retainHistory(keep: Int): Int {
+        require(keep in setOf(5, 10, 20)) { "保留数量无效" }
+        val old = WebDavHistory.retentionCandidates(history(), keep)
+        var deleted = 0
+        for (entry in old) {
+            delete(entry)
+            deleted++
+        }
+        return deleted
+    }
 }
 
 /** Credentials are device-bound, outside Android backups and complete ledger exports. */

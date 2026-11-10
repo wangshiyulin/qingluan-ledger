@@ -42,7 +42,7 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                             initialFirstVisibleItemIndex =
                                 ((year.coerceIn(1900, 2100) - 1900) / 3 * 3).coerceAtLeast(0)
                         ),
-                    modifier = Modifier.heightIn(max = 320.dp).testTag("year-grid"),
+                    modifier = Modifier.heightIn(max = minOf(320.dp, dialogContentMaxHeight())).testTag("year-grid"),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     items((1900..2100).toList()) { y ->
@@ -61,7 +61,7 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
             else
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
-                    modifier = Modifier.heightIn(max = 280.dp).testTag("month-grid"),
+                    modifier = Modifier.heightIn(max = minOf(280.dp, dialogContentMaxHeight())).testTag("month-grid"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items((1..12).toList()) { m ->
@@ -71,7 +71,7 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                                 feedback()
                                 choose(LocalDate.of(year, m, 1))
                             },
-                            label = { Text("${m}月") },
+                            label = { Text("${m}月", maxLines = 1) },
                         )
                     }
                 }

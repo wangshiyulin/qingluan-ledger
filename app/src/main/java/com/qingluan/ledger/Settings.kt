@@ -24,7 +24,6 @@ fun Settings(
     back: () -> Unit,
     open: (String) -> Unit = {},
 ) {
-    androidx.activity.compose.BackHandler(enabled = LocalRouteActive.current, onBack = back)
     val theme by vm.theme.collectAsState()
     val effects by vm.effects.collectAsState()
     val style by vm.appearance.collectAsState()
@@ -39,6 +38,9 @@ fun Settings(
     var target by remember { mutableStateOf<Long?>(null) }
     if (page in aboutPages) AboutPage(vm, page, back, open)
     else if (page == "同步") SyncPage(vm, back)
+    else if (page == "回收站") TrashPage(vm, back)
+    else if (page == "周期账单") RecurringPage(vm, cats, back)
+    else if (page == "其他设置") OtherSettingsPage(vm, back)
     else if (page == "分类管理")
         CategoryManager(
             cats,
@@ -122,6 +124,7 @@ fun Settings(
                                 Icons.Outlined.VerifiedUser,
                                 { open("数据保护") },
                             )
+                            SettingsActionCard("回收站", Icons.Outlined.DeleteOutline, { open("回收站") })
                             SettingsActionCard(
                                 "清空账单",
                                 Icons.Outlined.DeleteOutline,
@@ -167,13 +170,16 @@ fun Settings(
         GlassAlertDialog(
             onDismissRequest = { clear = false },
             title = { Text("清空全部账单？") },
-            text = { Text("删除全部账单，保留分类。") },
+            text = { Text("全部账单移入回收站，保留分类与周期规则。") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         vm.action {
-                            vm.undo.value = emptyList()
-                            vm.repository.dao.clear()
+                            vm.repository.recycle(
+                                vm.repository.dao.allEntries().map { it.id }.toSet()
+                            )
+                            vm.clearUndo()
+                            vm.message.value = "全部账单已移入回收站"
                         }
                         clear = false
                     }
@@ -289,11 +295,13 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
     ) {
         ProfileHeader(vm, rows)
         listOf(
-                "分类管理" to Icons.Outlined.Category,
                 "个性化" to Icons.Outlined.Palette,
+                "分类管理" to Icons.Outlined.Category,
                 "列表显示" to Icons.Outlined.ViewAgenda,
+                "周期账单" to Icons.Outlined.EventRepeat,
                 "本地数据" to Icons.Outlined.FolderOpen,
                 "同步" to Icons.Outlined.CloudSync,
+                "其他设置" to Icons.Outlined.MoreHoriz,
                 "关于" to Icons.Outlined.Info,
             )
             .forEach { (label, image) ->

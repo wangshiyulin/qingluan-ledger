@@ -27,7 +27,7 @@ fun SwipeEntryRow(
     delete: () -> Unit,
     longPress: (() -> Unit)? = null,
 ) {
-    val motion = LocalEffects.current.motion
+    val motion = motionAllowed(LocalEffects.current)
     val feedback = rememberAppFeedback()
     val reveal = with(LocalDensity.current) { 76.dp.toPx() }
     var dragging by remember { mutableStateOf(false) }
