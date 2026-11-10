@@ -38,7 +38,7 @@ fun Settings(
     var migrating by remember { mutableStateOf(false) }
     var target by remember { mutableStateOf<Long?>(null) }
     if (page in aboutPages) AboutPage(vm, page, back, open)
-    else if (page == "同步") SyncPlanPage(back)
+    else if (page == "同步") SyncPage(vm, back)
     else if (page == "分类管理")
         CategoryManager(
             cats,

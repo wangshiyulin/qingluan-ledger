@@ -31,13 +31,65 @@ import dev.chrisbanes.haze.*
 import java.time.*
 
 class MainActivity : ComponentActivity() {
+    private var launchReady by mutableStateOf(false)
+    private var launchMotion by mutableStateOf(true)
+    private var launchAnimation: android.animation.Animator? = null
+    private var launchDrawListener: android.view.ViewTreeObserver.OnPreDrawListener? = null
+
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         enableEdgeToEdge()
-        if (Build.VERSION.SDK_INT >= 31) splashScreen.setOnExitAnimationListener { it.remove() }
-        setContent { SecurityGate { LedgerApp() } }
+        val coldStart = b == null
+        if (Build.VERSION.SDK_INT >= 31) {
+            val root = window.decorView
+            launchDrawListener =
+                object : android.view.ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        if (!launchReady) return false
+                        root.viewTreeObserver.removeOnPreDrawListener(this)
+                        launchDrawListener = null
+                        return true
+                    }
+                }
+            root.viewTreeObserver.addOnPreDrawListener(launchDrawListener)
+            splashScreen.setOnExitAnimationListener { splash ->
+                launchAnimation =
+                    animateStartupExit(splash, launchMotion) {
+                        splash.remove()
+                        launchAnimation = null
+                    }
+            }
+        }
+        setContent {
+            val screen: @Composable () -> Unit = {
+                SecurityGate(
+                    onReady = { prefs ->
+                        launchMotion =
+                            prefs[
+                                androidx.datastore.preferences.core.booleanPreferencesKey("motion")]
+                                ?: true
+                        launchReady = true
+                    }
+                ) {
+                    LedgerApp()
+                }
+            }
+            if (coldStart && Build.VERSION.SDK_INT < 31)
+                LegacyStartupReveal(launchReady, launchMotion, screen)
+            else screen()
+        }
+    }
+
+    override fun onDestroy() {
+        launchDrawListener?.let { window.decorView.viewTreeObserver.removeOnPreDrawListener(it) }
+        launchDrawListener = null
+        launchAnimation?.cancel()
+        launchAnimation = null
+        super.onDestroy()
     }
 }
+
+val LocalCategoryIndex = staticCompositionLocalOf<Map<Long, Category>> { emptyMap() }
 
 val expenseColor = Color(0xFFB25643)
 
@@ -67,7 +119,11 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
     }
     val appearance by vm.appearance.collectAsStateWithLifecycle()
     val scheme = appearanceColors(context, dark, appearance)
-    MaterialTheme(colorScheme = scheme, typography = appearanceTypography(appearance)) {
+    val typography =
+        remember(appearance.fontSize, appearance.customFontPercent) {
+            appearanceTypography(appearance)
+        }
+    MaterialTheme(colorScheme = scheme, typography = typography) {
         val rows by vm.entries.collectAsStateWithLifecycle()
         val cats by vm.categories.collectAsStateWithLifecycle()
         val message by vm.message.collectAsStateWithLifecycle()
@@ -126,6 +182,7 @@ fun LedgerApp(vm: LedgerViewModel = viewModel()) {
             LocalCurrencyFrequency provides
                 remember(rows) { rows.groupingBy { it.currencyCode }.eachCount() },
             LocalAppearance provides appearance,
+            LocalCategoryIndex provides remember(cats) { cats.associateBy { it.id } },
         ) {
             SideEffect { currentView.isHapticFeedbackEnabled = effects.haptics }
             val feedback = rememberAppFeedback()
@@ -348,10 +405,11 @@ fun EntryRow(
 ) {
     val display = LocalExperience.current
     val feedback = rememberAppFeedback()
-    val c = cats.find { it.id == e.categoryId }
+    val c = LocalCategoryIndex.current[e.categoryId] ?: cats.find { it.id == e.categoryId }
     Surface(
         modifier =
             Modifier.fillMaxWidth()
+                .testTag("bill-row-${e.id}")
                 .padding(vertical = 3.dp)
                 .then(
                     if (onClick != null)
@@ -574,20 +632,9 @@ fun Details(
                     visibleCount = minOf(visibleCount + 50, filtered.size)
             }
     }
-    Column(Modifier.fillMaxSize()) {
-        if (selectionMode && vm != null)
-            Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                BulkBillActions(
-                    vm,
-                    filtered.map { it.id }.toSet(),
-                    selectedIds,
-                    { selectedIds = it },
-                    ::leaveSelection,
-                )
-            }
+    Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.weight(1f)
-                .fillMaxWidth()
+            Modifier.fillMaxSize()
                 .testTag("details-page")
                 .dismissSearchOnBlankTap(search, searchBounds, ::closeSearch),
             state = listState,
@@ -599,18 +646,17 @@ fun Details(
                     bottom = LocalFloatingBottomInset.current + 88.dp,
                 ),
         ) {
-            if (!selectionMode)
-                item {
-                    HomeToolbar(
-                        query,
-                        { query = it },
-                        search,
-                        { search = true },
-                        ::closeSearch,
-                        { searchBounds = it },
-                        { filter = true },
-                    )
-                }
+            item {
+                HomeToolbar(
+                    query,
+                    { query = it },
+                    search,
+                    { search = true },
+                    ::closeSearch,
+                    { searchBounds = it },
+                    { filter = true },
+                )
+            }
             item {
                 MonthHeader(month, scoped) {
                     month = it
@@ -643,15 +689,17 @@ fun Details(
                             },
                             onLongClick = null,
                             trailing = {
-                                Checkbox(
-                                    e.id in selectedIds,
-                                    {
-                                        selectedIds =
-                                            if (e.id in selectedIds) selectedIds - e.id
-                                            else selectedIds + e.id
-                                    },
-                                    modifier = Modifier.testTag("bill-checkbox-${e.id}"),
-                                )
+                                CompositionLocalProvider(
+                                    LocalMinimumInteractiveComponentSize provides
+                                        androidx.compose.ui.unit.Dp.Unspecified
+                                ) {
+                                    Checkbox(
+                                        e.id in selectedIds,
+                                        onCheckedChange = null,
+                                        modifier =
+                                            Modifier.size(24.dp).testTag("bill-checkbox-${e.id}"),
+                                    )
+                                }
                             },
                         )
                     else
@@ -675,6 +723,46 @@ fun Details(
                         )
                 }
             }
+        }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selectionMode && vm != null,
+            modifier =
+                Modifier.align(Alignment.TopCenter).padding(horizontal = 16.dp, vertical = 8.dp),
+            enter =
+                androidx.compose.animation.slideInVertically(
+                    animationSpec =
+                        androidx.compose.animation.core.tween(
+                            if (LocalEffects.current.motion) 220 else 0
+                        ),
+                    initialOffsetY = { -it },
+                ) +
+                    androidx.compose.animation.fadeIn(
+                        androidx.compose.animation.core.tween(
+                            if (LocalEffects.current.motion) 160 else 0
+                        )
+                    ),
+            exit =
+                androidx.compose.animation.slideOutVertically(
+                    animationSpec =
+                        androidx.compose.animation.core.tween(
+                            if (LocalEffects.current.motion) 180 else 0
+                        ),
+                    targetOffsetY = { -it },
+                ) +
+                    androidx.compose.animation.fadeOut(
+                        androidx.compose.animation.core.tween(
+                            if (LocalEffects.current.motion) 140 else 0
+                        )
+                    ),
+        ) {
+            if (vm != null)
+                BulkBillActions(
+                    vm,
+                    filtered.map { it.id }.toSet(),
+                    selectedIds,
+                    { selectedIds = it },
+                    ::leaveSelection,
+                )
         }
     }
     if (filter)

@@ -47,7 +47,7 @@ object AppLog {
             synchronized(lock) {
                 runCatching {
                     val safeAction =
-                        action.takeIf { it in setOf("应用启动", "本地操作", "账单保存", "导入", "导出") } ?: "本地操作"
+                        action.takeIf { it in setOf("应用启动", "本地操作", "账单保存", "导入", "导出", "WebDAV") } ?: "本地操作"
                     val result =
                         if (error == null) "完成"
                         else

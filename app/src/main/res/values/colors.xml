@@ -1,1 +1,5 @@
-<resources><color name="startup_background">#101218</color><color name="brand_teal">#3BA3A3</color></resources>
+<resources>
+    <color name="startup_background">#F7F9FA</color>
+    <color name="startup_logo_tint">#276B60</color>
+    <bool name="startup_light_bars">true</bool>
+</resources>

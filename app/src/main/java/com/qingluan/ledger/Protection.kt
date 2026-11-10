@@ -80,7 +80,7 @@ fun rememberAuthenticate(result: (Boolean) -> Unit): () -> Unit {
 }
 
 @Composable
-fun SecurityGate(content: @Composable () -> Unit) {
+fun SecurityGate(onReady: (Preferences) -> Unit = {}, content: @Composable () -> Unit) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val savedContent = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
@@ -89,6 +89,7 @@ fun SecurityGate(content: @Composable () -> Unit) {
     var stopped by remember { mutableLongStateOf(0L) }
     var error by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { context.preferences.data.collect { prefs = it } }
+    SideEffect { prefs?.let(onReady) }
     val locked = prefs?.get(booleanPreferencesKey("appLock")) ?: false
     val hide = prefs?.get(booleanPreferencesKey("hidePreview")) ?: false
     val timeout = (prefs?.get(stringPreferencesKey("lockTimeout")) ?: "60").toLongOrNull() ?: 60L
@@ -119,7 +120,10 @@ fun SecurityGate(content: @Composable () -> Unit) {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     if (prefs == null)
-        Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color(0xFF10131B)) {}
+        Surface(
+            Modifier.fillMaxSize(),
+            color = androidx.compose.ui.res.colorResource(R.color.startup_background),
+        ) {}
     else if (locked && !unlocked)
         MaterialTheme {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

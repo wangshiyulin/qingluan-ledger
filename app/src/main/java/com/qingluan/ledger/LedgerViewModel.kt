@@ -203,6 +203,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         action("应用启动") {
             localData.recover()
             getApplication<Application>().preferences.edit {
+                val themeKey = stringPreferencesKey("theme")
+                if (it[themeKey] !in setOf("system", "light", "dark")) it[themeKey] = "system"
                 val experienceKey = stringPreferencesKey("experience")
                 it[experienceKey] =
                     runCatching {
@@ -228,7 +230,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
                 throw e
             } catch (e: Exception) {
                 if (record) AppLog.record(getApplication(), label, e)
-                message.value = e.message ?: "操作失败"
+                message.value =
+                    if (label == "WebDAV") "WebDAV 操作失败，请查看同步页提示" else e.message ?: "操作失败"
             }
         }
     }

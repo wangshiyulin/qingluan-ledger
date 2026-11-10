@@ -82,6 +82,35 @@ fun palettePreviewColor(key: String) =
         else -> paletteColor(key)
     }
 
+/** Lift icon containers above dark cards without losing their theme tint. */
+fun readableDarkContainers(scheme: ColorScheme) =
+    scheme.copy(
+        primaryContainer = lerp(scheme.surfaceContainerHigh, scheme.primary, .30f),
+        onPrimaryContainer = scheme.onSurface,
+        secondaryContainer = lerp(scheme.surfaceContainerHigh, scheme.secondary, .26f),
+        onSecondaryContainer = scheme.onSurface,
+    )
+
+/** Moderate tint increase, including system dynamic colours and the pastel palettes. */
+fun richerLightColors(scheme: ColorScheme): ColorScheme =
+    scheme.copy(
+        primary = lerp(scheme.primary, Color.Black, .05f),
+        secondary = lerp(scheme.secondary, Color.Black, .05f),
+        primaryContainer = lerp(scheme.primaryContainer, scheme.primary, .14f),
+        secondaryContainer = lerp(scheme.secondaryContainer, scheme.secondary, .14f),
+        surfaceContainerLow = lerp(scheme.surfaceContainerLow, scheme.primary, .025f),
+        surfaceContainer = lerp(scheme.surfaceContainer, scheme.primary, .025f),
+        surfaceContainerHigh = lerp(scheme.surfaceContainerHigh, scheme.primary, .025f),
+    )
+
+fun richerDarkColors(scheme: ColorScheme): ColorScheme =
+    scheme.copy(
+        primary = lerp(scheme.primary, Color.Black, .04f),
+        secondary = lerp(scheme.secondary, Color.Black, .04f),
+        primaryContainer = lerp(scheme.primaryContainer, Color.Black, .04f),
+        secondaryContainer = lerp(scheme.secondaryContainer, Color.Black, .04f),
+    )
+
 @Composable
 fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance): ColorScheme {
     val seed = paletteColor(appearance.palette)
@@ -111,32 +140,35 @@ fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance)
                 background = lerp(seed, Color.White, .97f),
                 surface = lerp(seed, Color.White, .97f),
             )
-    return if (dark && appearance.pureBlack)
-        scheme.copy(
-            background = Color.Black,
-            surface = Color.Black,
-            surfaceContainerLowest = Color.Black,
-            surfaceContainerLow = Color(0xFF101010),
-            surfaceContainer = Color(0xFF141414),
-            surfaceContainerHigh = Color(0xFF1A1A1A),
-            surfaceContainerHighest = Color(0xFF222222),
-        )
-    else if (
-        !dark && appearance.palette in setOf("mint", "sky", "lilac", "peach", "oat", "sakura")
-    ) {
-        val pastel = palettePreviewColor(appearance.palette)
-        scheme.copy(
-            background = lerp(pastel, Color.White, .84f),
-            surface = lerp(pastel, Color.White, .84f),
-            primaryContainer = lerp(pastel, Color.White, .2f),
-            secondaryContainer = lerp(pastel, Color.White, .3f),
-            surfaceContainerLowest = lerp(pastel, Color.White, .96f),
-            surfaceContainerLow = lerp(pastel, Color.White, .76f),
-            surfaceContainer = lerp(pastel, Color.White, .65f),
-            surfaceContainerHigh = lerp(pastel, Color.White, .52f),
-            surfaceContainerHighest = lerp(pastel, Color.White, .42f),
-        )
-    } else scheme
+    val adjusted = if (dark) readableDarkContainers(scheme) else scheme
+    val themed =
+        if (dark && appearance.pureBlack)
+            adjusted.copy(
+                background = Color.Black,
+                surface = Color.Black,
+                surfaceContainerLowest = Color.Black,
+                surfaceContainerLow = Color(0xFF101010),
+                surfaceContainer = Color(0xFF141414),
+                surfaceContainerHigh = Color(0xFF1A1A1A),
+                surfaceContainerHighest = Color(0xFF222222),
+            )
+        else if (
+            !dark && appearance.palette in setOf("mint", "sky", "lilac", "peach", "oat", "sakura")
+        ) {
+            val pastel = palettePreviewColor(appearance.palette)
+            adjusted.copy(
+                background = lerp(pastel, Color.White, .84f),
+                surface = lerp(pastel, Color.White, .84f),
+                primaryContainer = lerp(pastel, Color.White, .2f),
+                secondaryContainer = lerp(pastel, Color.White, .3f),
+                surfaceContainerLowest = lerp(pastel, Color.White, .96f),
+                surfaceContainerLow = lerp(pastel, Color.White, .76f),
+                surfaceContainer = lerp(pastel, Color.White, .65f),
+                surfaceContainerHigh = lerp(pastel, Color.White, .52f),
+                surfaceContainerHighest = lerp(pastel, Color.White, .42f),
+            )
+        } else adjusted
+    return if (dark) richerDarkColors(themed) else richerLightColors(themed)
 }
 
 fun appearanceTypography(appearance: AppAppearance): Typography {

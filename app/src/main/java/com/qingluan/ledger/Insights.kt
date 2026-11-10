@@ -704,7 +704,7 @@ fun CalendarMonth(
                     val n = week * 7 + col - offset + 1
                     Column(
                         Modifier.weight(1f)
-                            .height(64.dp)
+                            .heightIn(min = 52.dp)
                             .then(
                                 if (n in 1..date.lengthOfMonth())
                                     Modifier.clickable { select(start.withDayOfMonth(n)) }

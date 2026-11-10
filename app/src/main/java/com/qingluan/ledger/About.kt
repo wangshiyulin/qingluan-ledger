@@ -8,6 +8,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -128,7 +129,7 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                         listOf(
                                 Triple("官方网站", Icons.Outlined.Language, AboutLinks.website),
                                 Triple("GitHub", Icons.Outlined.Code, AboutLinks.github),
-                                Triple("博客", Icons.Outlined.Article, AboutLinks.blog),
+                                Triple("博客", Icons.AutoMirrored.Outlined.Article, AboutLinks.blog),
                             )
                             .forEach { (label, image, url) ->
                                 Surface(
@@ -179,6 +180,8 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                     AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                 }
                 "更新日志" -> {
+                    Changelog("1.0.5", "简化同步与独立说明；透明启动标识及淡出过渡；默认跟随系统，改善主题浓度、图标与日历间距；优化账单保存和发行包体积。")
+                    Changelog("1.0.4", "多选栏顶部悬浮、卡片尺寸保持不变；实现 HTTPS WebDAV 手动加密备份与恢复，新增冲突校验和恢复副本。")
                     Changelog("1.0.3", "自定义字号、独立分类迁移；时间先于备注；新增可关闭的水平转场与退出页面交互保护。")
                     Changelog("1.0.2", "明细原位多选、按记账天数计算平均值、编辑金额直接替换、常用币种前置；新增同步方案，优化兼容图标和系统能力回退。")
                     Changelog("1.0.1", "统一返回按钮位置；简化票据选择与设置入口；调整本地数据卡片；配置官方网站。")

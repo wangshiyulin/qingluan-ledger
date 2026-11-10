@@ -1,5 +1,6 @@
 package com.qingluan.ledger
 
+import androidx.activity.compose.setContent
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -862,7 +863,8 @@ class AppTest {
         }
         compose.onNode(hasText("待编辑", substring = true)).performTouchInput { longClick() }
         compose.onAllNodes(isDialog()).assertCountEquals(0)
-        listOf("编辑", "导出", "删除", "全选").forEach { compose.onNodeWithText(it).assertExists() }
+        listOf("编辑", "导出", "删除").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("全选", substring = true).assertExists()
         compose.onNodeWithText("全选").performClick()
         compose.onNodeWithText("已选 2 笔").assertExists()
         compose.onNodeWithContentDescription("退出多选").performClick()
@@ -895,8 +897,8 @@ class AppTest {
                 it(0f, bottom - safe)
             }
         compose.onNodeWithText("同步").performClick()
-        compose.onNodeWithText("WebDAV 备份同步").assertExists()
-        compose.onNodeWithText("本版本仅展示方案，不连接服务器，不上传或下载账单。").performScrollTo().assertExists()
+        compose.onNodeWithText("WebDAV 连接").assertExists()
+        compose.onNodeWithText("上传备份").performScrollTo().assertExists()
     }
 
     @Test
@@ -936,6 +938,152 @@ class AppTest {
         compose.mainClock.autoAdvance = true
         compose.onNodeWithText("分类管理").performScrollTo().assertExists()
         compose.onNodeWithText("暂无账单").assertDoesNotExist()
+    }
+
+    @Test
+    fun floatingSelectionPreservesRowsAndWebDavForm() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.categories.value.isNotEmpty()
+        }
+        val category = vm.categories.value.first { it.type == "EXPENSE" }
+        val id =
+            kotlinx.coroutines.runBlocking {
+                vm.repository.dao.insert(
+                    Entry(
+                        amount = 700,
+                        categoryId = category.id,
+                        occurredAt = System.currentTimeMillis(),
+                        note = "固定尺寸",
+                    )
+                )
+            }
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithTag("bill-row-$id").fetchSemanticsNodes().isNotEmpty()
+        }
+        val before = compose.onNodeWithTag("bill-row-$id").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("bill-row-$id").performTouchInput { longClick() }
+        val after = compose.onNodeWithTag("bill-row-$id").fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertEquals(before, after)
+        compose.onNodeWithTag("bill-checkbox-$id", useUnmergedTree = true).assertExists()
+        listOf("编辑", "导出", "删除").forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("全选", substring = true).assertExists()
+        compose.onNodeWithContentDescription("退出多选").performClick()
+        org.junit.Assert.assertEquals(
+            before,
+            compose.onNodeWithTag("bill-row-$id").fetchSemanticsNode().boundsInRoot,
+        )
+        compose.onNodeWithText("我的").performClick()
+        compose.onNodeWithText("同步").performScrollTo()
+        val syncBottom = compose.onNodeWithText("同步").fetchSemanticsNode().boundsInRoot.bottom
+        val safeBottom =
+            compose.activity.resources.displayMetrics.heightPixels -
+                150f * compose.activity.resources.displayMetrics.density
+        if (syncBottom > safeBottom)
+            compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, syncBottom - safeBottom)
+            }
+        compose.onNodeWithText("同步").performClick()
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodes(hasTestTag("webdav-address") and isEnabled())
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithTag("webdav-address").performTextInput("http://invalid.example/")
+        compose.onNodeWithTag("webdav-username").performTextInput("user")
+        compose.onNodeWithTag("webdav-password").performTextInput("pass")
+        compose.onNodeWithText("测试连接").performScrollTo().performClick()
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodes(hasText("HTTPS", substring = true) and hasTestTag("webdav-status"))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose
+            .onNodeWithTag("webdav-status")
+            .performScrollTo()
+            .assertTextContains("HTTPS", substring = true)
+    }
+
+    @Test
+    fun simplifiedSyncSystemThemeAndCompactCalendar() {
+        val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
+        compose.waitUntil(5000) {
+            compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
+            vm.categories.value.isNotEmpty()
+        }
+        org.junit.Assert.assertEquals("system", vm.theme.value)
+        compose.onNodeWithText("我的").performClick()
+        compose.onNodeWithText("同步").performScrollTo()
+        val bottom = compose.onNodeWithText("同步").fetchSemanticsNode().boundsInRoot.bottom
+        val safe =
+            compose.activity.resources.displayMetrics.heightPixels -
+                150f * compose.activity.resources.displayMetrics.density
+        if (bottom > safe)
+            compose.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) {
+                it(0f, bottom - safe)
+            }
+        compose.onNodeWithText("同步").performClick()
+        compose.waitUntil(5000) {
+            compose
+                .onAllNodes(hasTestTag("webdav-address") and isEnabled())
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithText("手动备份同步").assertDoesNotExist()
+        compose.onNodeWithTag("webdav-backup-password").assertDoesNotExist()
+        compose.onNodeWithContentDescription("同步说明").performClick()
+        compose.onNodeWithText("上传与恢复范围").performScrollTo().assertExists()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithTag("webdav-address").performTextInput("https://dav.example/ledger/")
+        compose.onNodeWithTag("webdav-username").performTextInput("user")
+        compose.onNodeWithTag("webdav-password").performTextInput("password")
+        compose.onNodeWithText("上传备份").performScrollTo().performClick()
+        compose.onNodeWithTag("webdav-backup-password").assertExists()
+        compose.onNodeWithText("继续").assertIsNotEnabled()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithTag("webdav-backup-password").assertDoesNotExist()
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                androidx.compose.material3.MaterialTheme {
+                    CalendarMonth(java.time.LocalDate.of(2026, 11, 1), emptyList()) {}
+                }
+            }
+        }
+        val two = compose.onNodeWithText("2").fetchSemanticsNode().boundsInRoot.top
+        val nine = compose.onNodeWithText("9").fetchSemanticsNode().boundsInRoot.top
+        org.junit.Assert.assertEquals(
+            52f * compose.activity.resources.displayMetrics.density,
+            nine - two,
+            1f,
+        )
+    }
+
+    @Test
+    fun legacySplashRevealsContentAndDoesNotBlockAfterExit() {
+        val ready = androidx.compose.runtime.mutableStateOf(false)
+        val motion = androidx.compose.runtime.mutableStateOf(true)
+        var clicks = 0
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                LegacyStartupReveal(ready.value, motion.value) {
+                    androidx.compose.material3.Button(onClick = { clicks++ }) {
+                        androidx.compose.material3.Text("启动后操作")
+                    }
+                }
+            }
+        }
+        compose.onNodeWithText("启动后操作").performClick()
+        org.junit.Assert.assertEquals(0, clicks)
+        compose.runOnUiThread { ready.value = true }
+        compose.waitForIdle()
+        compose.onNodeWithText("启动后操作").performClick()
+        org.junit.Assert.assertEquals(1, clicks)
+        compose.runOnUiThread { motion.value = false }
+        compose.onNodeWithText("启动后操作").performClick()
+        org.junit.Assert.assertEquals(2, clicks)
     }
 
     private fun waitForOff(label: String) {

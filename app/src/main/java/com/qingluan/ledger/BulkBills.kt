@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.room.withTransaction
@@ -56,7 +57,16 @@ fun BulkBillActions(
     var edit by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        modifier =
+            Modifier.fillMaxWidth().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(PointerEventPass.Final).changes.forEach {
+                        it.consume()
+                    }
+                }
+            },
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 2.dp,
     ) {

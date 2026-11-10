@@ -187,13 +187,6 @@ class LocalDataManager(private val context: Context, private val repository: Rep
         }
     }
 
-    suspend fun csv(): String {
-        recover()
-        return repository.db.withTransaction {
-            CsvExport.encode(repository.dao.allCategories(), repository.dao.allEntries())
-        }
-    }
-
     suspend fun importCsv(raw: String): CsvImportResult {
         val bills = withContext(Dispatchers.Default) { CsvImport.decode(raw) }
         recover()

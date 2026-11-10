@@ -22,6 +22,14 @@ interface LedgerDao {
 
     @Query("SELECT * FROM transactions") suspend fun allEntries(): List<Entry>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE id=:id)")
+    suspend fun entryExists(id: Long): Boolean
+
+    @Query(
+        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE id != :excludingId AND currencyCode=:currency AND type=:type"
+    )
+    suspend fun amountTotal(currency: String, type: String, excludingId: Long): Long
+
     @Query("SELECT * FROM categories ORDER BY sortOrder,id")
     suspend fun allCategories(): List<Category>
 
@@ -116,9 +124,13 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
             require(e.amount > 0)
             require(Currencies.contains(e.currencyCode)) { "不支持的币种" }
             require(dao.allCategories().any { it.id == e.categoryId && it.type == e.type })
-            val entries = dao.allEntries()
-            require(e.id == 0L || entries.any { it.id == e.id }) { "账单已不存在" }
-            totals(entries.filter { it.id != e.id && it.currencyCode == e.currencyCode } + e)
+            require(e.id == 0L || dao.entryExists(e.id)) { "账单已不存在" }
+            for (type in listOf("INCOME", "EXPENSE")) {
+                Math.addExact(
+                    dao.amountTotal(e.currencyCode, type, e.id),
+                    if (e.type == type) e.amount else 0L,
+                )
+            }
             if (e.id == 0L) dao.insert(e) else dao.update(e)
         }
 
