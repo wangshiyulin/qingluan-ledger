@@ -14,7 +14,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "com.qingluan.ledger"
  compileSdk = 35
- defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 107; versionName = "1.0.7"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+ defaultConfig { applicationId = "com.qingluan.ledger"; minSdk = 26; targetSdk = 35; versionCode = 109; versionName = "1.0.9"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
  buildTypes {
   getByName("release") {
    isMinifyEnabled = true

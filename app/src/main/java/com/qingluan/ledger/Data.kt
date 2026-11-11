@@ -15,6 +15,12 @@ val Context.preferences by preferencesDataStore("appearance")
 
 @Dao
 interface LedgerDao {
+    @Query("SELECT COALESCE(SUM(LENGTH(CAST(receipt AS BLOB))), 0) FROM transactions")
+    suspend fun receiptContentBytes(): Long
+
+    @Query("SELECT COALESCE(SUM(LENGTH(CAST(entryJson AS BLOB))), 0) FROM trash_entries")
+    suspend fun trashContentBytes(): Long
+
     @Query("SELECT * FROM transactions ORDER BY occurredAt DESC, id DESC")
     fun entries(): Flow<List<Entry>>
 

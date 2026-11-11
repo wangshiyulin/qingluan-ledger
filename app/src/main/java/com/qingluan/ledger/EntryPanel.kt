@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -33,19 +32,26 @@ fun EntryPanel(
     initialType: String = "EXPENSE",
     onCancel: () -> Unit,
     onManage: () -> Unit,
+    onManageTags: (() -> Unit)? = null,
+    draftReceipt: String? = null,
+    updateDraftReceipt: ((String) -> Unit)? = null,
     save: (Entry) -> Unit,
 ) {
     val feedback = rememberAppFeedback("input")
-    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale * LocalAppearance.current.scale
+    val fontScale =
+        androidx.compose.ui.platform.LocalDensity.current.fontScale * LocalAppearance.current.scale
     val categoryColumns = if (fontScale > 1.3f) 3 else 4
     var currency by rememberSaveable { mutableStateOf(original?.currencyCode ?: initialCurrency) }
-    var type by rememberSaveable { mutableStateOf(original?.type ?: initialType.takeIf { it == "INCOME" } ?: "EXPENSE") }
+    var type by rememberSaveable {
+        mutableStateOf(original?.type ?: initialType.takeIf { it == "INCOME" } ?: "EXPENSE")
+    }
     var category by rememberSaveable { mutableLongStateOf(original?.categoryId ?: 0L) }
     var amount by rememberSaveable {
         mutableStateOf(original?.let { Money.text(it.amount, it.currencyCode) } ?: "")
     }
     var replaceAmountOnInput by rememberSaveable { mutableStateOf(original != null) }
-    var receipt by remember { mutableStateOf(original?.receipt ?: "") }
+    var receipt by remember { mutableStateOf(draftReceipt ?: original?.receipt ?: "") }
+    var tags by rememberSaveable { mutableStateOf(original?.tags ?: "") }
     var note by rememberSaveable { mutableStateOf(original?.note ?: "") }
     var dateText by rememberSaveable { mutableStateOf((original?.date() ?: initial).toString()) }
     var timeText by rememberSaveable {
@@ -65,16 +71,16 @@ fun EntryPanel(
             val now = LocalDateTime.now()
             dateText = now.toLocalDate().toString()
             timeText = now.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
-            kotlinx.coroutines.delay(1000)
+            kotlinx.coroutines.delay(60_000L - System.currentTimeMillis() % 60_000L)
         }
     }
     var picking by rememberSaveable { mutableStateOf(original == null) }
     var dateOpen by remember { mutableStateOf(false) }
     var timeOpen by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     val focus = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    val selected = cats.find { it.id == category && it.type == type }
+    val selected =
+        remember(cats, category, type) { cats.find { it.id == category && it.type == type } }
     LaunchedEffect(cats, category) {
         if (category != 0L && selected == null) {
             category = 0L
@@ -116,7 +122,11 @@ fun EntryPanel(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (value, label) ->
                 TextButton(
-                    modifier = Modifier.semantics { this.selected = type == value; role = Role.Tab },
+                    modifier =
+                        Modifier.semantics {
+                            this.selected = type == value
+                            role = Role.Tab
+                        },
                     onClick = {
                         feedback()
                         focus.clearFocus()
@@ -126,7 +136,7 @@ fun EntryPanel(
                             category = 0
                         }
                         picking = true
-                    }
+                    },
                 ) {
                     Text(
                         label,
@@ -184,8 +194,10 @@ fun EntryPanel(
                 Text("分类管理")
             }
         } else {
-            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     CurrencyButton(currency) {
                         if (amount.isNotEmpty() && Money.parse(amount, it) == null) amount = ""
@@ -193,9 +205,14 @@ fun EntryPanel(
                     }
                     Text(
                         amount.ifEmpty { Money.text(0, currency) },
-                        Modifier.weight(1f).horizontalScroll(rememberScrollState())
-                            .padding(vertical = 8.dp).testTag("entry-amount")
-                            .semantics { contentDescription = "金额，${amount.ifEmpty { "0" }}"; liveRegion = LiveRegionMode.Polite },
+                        Modifier.weight(1f)
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 8.dp)
+                            .testTag("entry-amount")
+                            .semantics {
+                                contentDescription = "金额，${amount.ifEmpty { "0" }}"
+                                liveRegion = LiveRegionMode.Polite
+                            },
                         style = MaterialTheme.typography.headlineLarge,
                         maxLines = 1,
                     )
@@ -216,7 +233,11 @@ fun EntryPanel(
                             }
                         ),
                 )
-                ReceiptSelector(receipt) { receipt = it }
+                EntryTagSelector(category, tags, { tags = it }, onManageTags)
+                ReceiptSelector(receipt) {
+                    receipt = it
+                    updateDraftReceipt?.invoke(it)
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Column(Modifier.weight(3f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -242,7 +263,9 @@ fun EntryPanel(
                                                             role = Role.Button
                                                             customActions =
                                                                 listOf(
-                                                                    CustomAccessibilityAction("清空金额") {
+                                                                    CustomAccessibilityAction(
+                                                                        "清空金额"
+                                                                    ) {
                                                                         feedback()
                                                                         amount = ""
                                                                         true
@@ -261,7 +284,12 @@ fun EntryPanel(
                                                         key(value)
                                                     },
                                                     onLongClick =
-                                                        if (value == "⌫") ({ feedback(); amount = "" }) else null,
+                                                        if (value == "⌫")
+                                                            ({
+                                                                feedback()
+                                                                amount = ""
+                                                            })
+                                                        else null,
                                                 ),
                                             contentAlignment = Alignment.Center,
                                         ) {
@@ -284,7 +312,9 @@ fun EntryPanel(
                                 keyboard?.hide()
                                 dateOpen = true
                             },
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("entry-date")
+                            Modifier.fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .testTag("entry-date")
                                 .semantics { contentDescription = "日期，$dateText" },
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(2.dp),
@@ -301,8 +331,9 @@ fun EntryPanel(
                                 keyboard?.hide()
                                 timeOpen = true
                             },
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                                .semantics { contentDescription = "时间，$timeText" },
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics {
+                                contentDescription = "时间，$timeText"
+                            },
                             shape = RoundedCornerShape(14.dp),
                             contentPadding = PaddingValues(2.dp),
                         ) {
@@ -329,7 +360,7 @@ fun EntryPanel(
                                         original?.createdAt ?: System.currentTimeMillis(),
                                         System.currentTimeMillis(),
                                         currencyCode = currency,
-                                        tags = original?.tags ?: "",
+                                        tags = tags,
                                         receipt = receipt,
                                     )
                                 )

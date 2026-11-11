@@ -6,6 +6,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 
@@ -102,34 +104,72 @@ fun palettePreviewColor(key: String) =
         else -> paletteColor(key)
     }
 
-/** Lift icon containers above dark cards without losing their theme tint. */
+/** Strengthen accent saturation once per theme, keeping light/dark luminance appropriate. */
+private fun vividAccent(color: Color, dark: Boolean): Color {
+    val hsv = FloatArray(3)
+    android.graphics.Color.colorToHSV(color.toArgb(), hsv)
+    hsv[1] = (hsv[1] * 1.22f + .035f).coerceAtMost(.88f)
+    hsv[2] = if (dark) hsv[2].coerceIn(.76f, .97f) else (hsv[2] * .94f).coerceAtMost(.76f)
+    return Color(android.graphics.Color.HSVToColor(hsv))
+}
+
+private fun readableAccent(accent: Color, background: Color): Color {
+    var result = accent
+    val base = background.luminance()
+    val target = if (base < .35f) Color.White else Color.Black
+    repeat(12) {
+        val foreground = result.luminance()
+        val contrast = (maxOf(base, foreground) + .05f) / (minOf(base, foreground) + .05f)
+        if (contrast >= 4.5f) return result
+        result = lerp(result, target, .12f)
+    }
+    return target
+}
+
 fun readableDarkContainers(scheme: ColorScheme) =
     scheme.copy(
         primaryContainer = lerp(scheme.surfaceContainerHigh, scheme.primary, .30f),
-        onPrimaryContainer = scheme.onSurface,
+        onPrimaryContainer = scheme.primary,
         secondaryContainer = lerp(scheme.surfaceContainerHigh, scheme.secondary, .26f),
-        onSecondaryContainer = scheme.onSurface,
+        onSecondaryContainer = scheme.secondary,
     )
 
-/** Moderate tint increase, including system dynamic colours and the pastel palettes. */
-fun richerLightColors(scheme: ColorScheme): ColorScheme =
-    scheme.copy(
-        primary = lerp(scheme.primary, Color.Black, .05f),
-        secondary = lerp(scheme.secondary, Color.Black, .05f),
-        primaryContainer = lerp(scheme.primaryContainer, scheme.primary, .14f),
-        secondaryContainer = lerp(scheme.secondaryContainer, scheme.secondary, .14f),
-        surfaceContainerLow = lerp(scheme.surfaceContainerLow, scheme.primary, .025f),
-        surfaceContainer = lerp(scheme.surfaceContainer, scheme.primary, .025f),
-        surfaceContainerHigh = lerp(scheme.surfaceContainerHigh, scheme.primary, .025f),
+fun richerLightColors(scheme: ColorScheme): ColorScheme {
+    val primary = readableAccent(vividAccent(scheme.primary, false), scheme.surface)
+    val secondary = readableAccent(vividAccent(scheme.secondary, false), scheme.surface)
+    val primaryContainer = lerp(scheme.primaryContainer, primary, .18f)
+    val secondaryContainer = lerp(scheme.secondaryContainer, secondary, .18f)
+    return scheme.copy(
+        primary = primary,
+        secondary = secondary,
+        onPrimaryContainer = readableAccent(primary, primaryContainer),
+        onSecondaryContainer = readableAccent(secondary, secondaryContainer),
+        onSurface = lerp(scheme.onSurface, Color.Black, .12f),
+        onSurfaceVariant = lerp(scheme.onSurfaceVariant, primary, .16f),
+        primaryContainer = primaryContainer,
+        secondaryContainer = secondaryContainer,
+        surfaceContainerLow = lerp(scheme.surfaceContainerLow, primary, .025f),
+        surfaceContainer = lerp(scheme.surfaceContainer, primary, .025f),
+        surfaceContainerHigh = lerp(scheme.surfaceContainerHigh, primary, .025f),
     )
+}
 
-fun richerDarkColors(scheme: ColorScheme): ColorScheme =
-    scheme.copy(
-        primary = lerp(scheme.primary, Color.Black, .04f),
-        secondary = lerp(scheme.secondary, Color.Black, .04f),
-        primaryContainer = lerp(scheme.primaryContainer, Color.Black, .04f),
-        secondaryContainer = lerp(scheme.secondaryContainer, Color.Black, .04f),
+fun richerDarkColors(scheme: ColorScheme): ColorScheme {
+    val primary = readableAccent(vividAccent(scheme.primary, true), scheme.surface)
+    val secondary = readableAccent(vividAccent(scheme.secondary, true), scheme.surface)
+    return scheme.copy(
+        primary = primary,
+        secondary = secondary,
+        onPrimaryContainer =
+            readableAccent(primary, lerp(scheme.surfaceContainerHigh, primary, .24f)),
+        onSecondaryContainer =
+            readableAccent(secondary, lerp(scheme.surfaceContainerHigh, secondary, .22f)),
+        onSurface = lerp(scheme.onSurface, Color.White, .08f),
+        onSurfaceVariant = lerp(scheme.onSurfaceVariant, primary, .12f),
+        primaryContainer = lerp(scheme.surfaceContainerHigh, primary, .24f),
+        secondaryContainer = lerp(scheme.surfaceContainerHigh, secondary, .22f),
     )
+}
 
 @Composable
 fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance): ColorScheme {

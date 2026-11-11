@@ -185,6 +185,14 @@ fun LedgerApp(
         val effects by vm.effects.collectAsStateWithLifecycle()
         val selecting by vm.multiSelecting.collectAsStateWithLifecycle()
         val experience by vm.experience.collectAsStateWithLifecycle()
+        val mainCurrency by vm.mainCurrency.collectAsStateWithLifecycle()
+        val managedTags by vm.managedTags.collectAsStateWithLifecycle()
+        var temporaryHide by remember { mutableStateOf<Boolean?>(null) }
+        LaunchedEffect(experience.hideAmounts) { temporaryHide = null }
+        val visibleExperience =
+            if (temporaryHide == null) experience
+            else experience.copy(hideAmounts = temporaryHide!!)
+        val toggleAmounts: () -> Unit = { temporaryHide = !visibleExperience.hideAmounts }
         val nav = rememberNavController()
         val navigationFocus = androidx.compose.ui.platform.LocalFocusManager.current
         val navigationKeyboard =
@@ -204,6 +212,8 @@ fun LedgerApp(
         var sheetOpen by rememberSaveable { mutableStateOf(false) }
         var entryInitialType by rememberSaveable { mutableStateOf("EXPENSE") }
         val entryState = rememberSaveableStateHolder()
+        // Large image drafts stay in memory across management pages, outside saved-state Bundles.
+        var draftReceipt by remember { mutableStateOf<String?>(null) }
         var initialDate by remember { mutableStateOf(LocalDate.now()) }
         LaunchedEffect(quickType, sheetOpen, busy) {
             if (quickType != null && !sheetOpen && !busy) {
@@ -211,6 +221,7 @@ fun LedgerApp(
                 editId = 0L
                 initialDate = LocalDate.now()
                 entryState.removeState("entry")
+                draftReceipt = null
                 if (nav.currentDestination?.route != "明细")
                     nav.navigate("明细") {
                         popUpTo(nav.graph.startDestinationId) { saveState = true }
@@ -253,7 +264,11 @@ fun LedgerApp(
             androidx.compose.ui.platform.LocalHapticFeedback provides
                 if (effects.haptics) nativeHaptic else silentHaptic,
             LocalEffects provides effects,
-            LocalExperience provides experience,
+            LocalExperience provides visibleExperience,
+            LocalMainCurrency provides mainCurrency,
+            LocalTagCatalog provides managedTags,
+            LocalCurrency provides mainCurrency,
+            LocalToggleAmounts provides toggleAmounts,
             LocalCurrencyFrequency provides
                 remember(rows) { rows.groupingBy { it.currencyCode }.eachCount() },
             LocalAppearance provides appearance,
@@ -278,6 +293,7 @@ fun LedgerApp(
                                     entryInitialType = "EXPENSE"
                                     initialDate = LocalDate.now()
                                     entryState.removeState("entry")
+                                    draftReceipt = null
                                     sheetOpen = true
                                 },
                                 modifier = Modifier.size(72.dp),
@@ -352,6 +368,7 @@ fun LedgerApp(
                                             onEdit = {
                                                 editId = it.id
                                                 entryState.removeState("entry")
+                                                draftReceipt = null
                                                 sheetOpen = true
                                             },
                                             onDelete = { vm.deleteEntries(listOf(it)) },
@@ -367,6 +384,7 @@ fun LedgerApp(
                                             entryInitialType = "EXPENSE"
                                             editId = 0L
                                             entryState.removeState("entry")
+                                            draftReceipt = null
                                             sheetOpen = true
                                         }
                                     }
@@ -399,22 +417,34 @@ fun LedgerApp(
             }
             BackupReminder(vm)
             if (sheetOpen && route !in secondaryPages) {
-                EntrySheet(dismiss = { sheetOpen = false }) {
+                EntrySheet(
+                    dismiss = {
+                        sheetOpen = false
+                        draftReceipt = null
+                    }
+                ) {
                     entryState.SaveableStateProvider("entry") {
                         EntryPanel(
                             edit,
                             initialDate,
                             cats,
                             busy,
-                            initialCurrency = "CNY",
+                            initialCurrency = mainCurrency,
                             initialType = entryInitialType,
-                            onCancel = { sheetOpen = false },
+                            onCancel = {
+                                sheetOpen = false
+                                draftReceipt = null
+                            },
                             onManage = { openPage("分类管理") },
+                            onManageTags = { openPage("标签管理") },
+                            draftReceipt = draftReceipt,
+                            updateDraftReceipt = { draftReceipt = it },
                             save = { e ->
                                 vm.save(e) {
                                     feedback()
                                     sheetOpen = false
                                     entryState.removeState("entry")
+                                    draftReceipt = null
                                     editId = 0L
                                     nav.navigate("明细") { popUpTo("明细") { inclusive = true } }
                                 }
@@ -596,7 +626,8 @@ fun EntryRow(
 
 @Composable
 fun MonthHeader(month: LocalDate, rows: List<Entry>, change: (LocalDate) -> Unit) {
-    val groups = remember(rows) { currencyGroups(rows) }
+    val defaultCurrency = LocalMainCurrency.current
+    val groups = remember(rows, defaultCurrency) { currencyGroups(rows, defaultCurrency) }
     Column {
         groups.entries.forEachIndexed { index, (code, entries) ->
             CompositionLocalProvider(LocalCurrency provides code) {

@@ -78,7 +78,8 @@ fun Insights(
             }
         }
     val current = remember(rows, range) { rows.filter { range.contains(it) } }
-    val groupedRows = remember(rows) { currencyGroups(rows) }
+    val defaultCurrency = LocalMainCurrency.current
+    val groupedRows = remember(rows, defaultCurrency) { currencyGroups(rows, defaultCurrency) }
     val groupedCurrent = remember(current) { current.groupBy { it.currencyCode } }
     val today = LocalDate.now()
     val summaries =

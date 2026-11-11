@@ -65,8 +65,15 @@ class CompleteBackupTest {
 
     @Test
     fun fullRoundTripIncludesAvatarAndAllSettings() = runBlocking {
+        val budgets = BudgetRules.encode(listOf(BudgetRule("USD", 0, 123450)))
+        val tags = TagCatalog.encode(listOf(ManagedTag(categoryId = 1, name = "午餐")))
+        context.preferences.edit {
+            it[TagCatalog.key] = tags
+            it[BudgetRules.mainCurrencyKey] = "USD"
+            it[BudgetRules.key] = budgets
+        }
         val raw = manager.export()
-        assertEquals(7, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(9, JSONObject(raw).getInt("formatVersion"))
         val image = File(context.filesDir, "avatar.jpg").readBytes()
         repo.dao.clear()
         context.preferences.updateData { emptyPreferences() }
@@ -74,6 +81,9 @@ class CompleteBackupTest {
         manager.restore(raw)
         assertEquals(123L, repo.dao.allEntries().single().amount)
         val prefs = context.preferences.data.first()
+        assertEquals(TagCatalog.decode(tags), TagCatalog.decode(prefs[TagCatalog.key]!!))
+        assertEquals("USD", prefs[BudgetRules.mainCurrencyKey])
+        assertEquals(BudgetRules.decode(budgets), BudgetRules.decode(prefs[BudgetRules.key]!!))
         assertEquals("备份测试", prefs[stringPreferencesKey("nickname")])
         assertEquals("dark", prefs[stringPreferencesKey("theme")])
         assertEquals("large", prefs[stringPreferencesKey("fontSize")])
@@ -87,10 +97,12 @@ class CompleteBackupTest {
 
     @Test
     fun legacyBackupsKeepCurrentPersonalization() = runBlocking {
+        context.preferences.edit { it[TagCatalog.key] = TagCatalog.encode(listOf(ManagedTag(categoryId = 1, name = "旧模板"))) }
         val raw = repo.backup()
         val image = File(context.filesDir, "avatar.jpg").readBytes()
         repo.dao.clear()
         manager.restore(raw)
+        assertNull(context.preferences.data.first()[TagCatalog.key])
         assertEquals(123L, repo.dao.allEntries().single().amount)
         assertEquals("备份测试", context.preferences.data.first()[stringPreferencesKey("nickname")])
         assertArrayEquals(image, File(context.filesDir, "avatar.jpg").readBytes())

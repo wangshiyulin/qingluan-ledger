@@ -27,6 +27,8 @@ fun Settings(
     val theme by vm.theme.collectAsState()
     val effects by vm.effects.collectAsState()
     val style by vm.appearance.collectAsState()
+    val mainCurrency by vm.mainCurrency.collectAsState()
+    var currencyPicker by remember { mutableStateOf(false) }
 
     var font by remember { mutableStateOf(false) }
     var palette by remember { mutableStateOf(false) }
@@ -39,7 +41,10 @@ fun Settings(
     if (page in aboutPages) AboutPage(vm, page, back, open)
     else if (page == "同步") SyncPage(vm, back)
     else if (page == "回收站") TrashPage(vm, back)
+    else if (page == "存储空间管理") StoragePage(vm, back)
+    else if (page == "标签管理") TagManagementPage(vm, cats, back)
     else if (page == "周期账单") RecurringPage(vm, cats, back)
+    else if (page == "预算管理") BudgetPage(vm, cats, back)
     else if (page == "其他设置") OtherSettingsPage(vm, back)
     else if (page == "分类管理")
         CategoryManager(
@@ -51,6 +56,7 @@ fun Settings(
                 target = null
             },
             onMigrate = { migrating = true },
+            onTags = { open("标签管理") },
         ) { type, ids ->
             vm.action { vm.repository.reorderCategories(type, ids) }
         }
@@ -89,6 +95,11 @@ fun Settings(
                         }
                     }
                     item {
+                        PreferenceCard("主币种", Icons.Outlined.CurrencyExchange, mainCurrency) {
+                            currencyPicker = true
+                        }
+                    }
+                    item {
                         PreferenceSwitch("灵动效果", Icons.Outlined.AutoAwesome, effects.motion) {
                             vm.effect("motion", it)
                         }
@@ -100,6 +111,7 @@ fun Settings(
                     }
                 }
                 if (page == "个性化") {
+                    item { PreferenceCard("列表显示", Icons.Outlined.ViewAgenda, "") { open("列表显示") } }
                     item { PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") } }
                     item { PreferenceCard("统计偏好", Icons.Outlined.QueryStats, "") { open("统计偏好") } }
                 }
@@ -124,6 +136,7 @@ fun Settings(
                                 Icons.Outlined.VerifiedUser,
                                 { open("数据保护") },
                             )
+                            SettingsActionCard("存储空间管理", Icons.Outlined.Storage, { open("存储空间管理") })
                             SettingsActionCard("回收站", Icons.Outlined.DeleteOutline, { open("回收站") })
                             SettingsActionCard(
                                 "清空账单",
@@ -134,6 +147,11 @@ fun Settings(
                         }
                     }
             }
+        }
+    if (currencyPicker)
+        CurrencyPicker(mainCurrency, { currencyPicker = false }) {
+            vm.mainCurrency(it)
+            currencyPicker = false
         }
     if (migrating) CategoryMigrationDialog(vm, cats) { migrating = false }
     if (font) FontDialog(vm, style) { font = false }
@@ -297,8 +315,8 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
         listOf(
                 "个性化" to Icons.Outlined.Palette,
                 "分类管理" to Icons.Outlined.Category,
-                "列表显示" to Icons.Outlined.ViewAgenda,
                 "周期账单" to Icons.Outlined.EventRepeat,
+                "预算管理" to Icons.Outlined.AccountBalanceWallet,
                 "本地数据" to Icons.Outlined.FolderOpen,
                 "同步" to Icons.Outlined.CloudSync,
                 "其他设置" to Icons.Outlined.MoreHoriz,

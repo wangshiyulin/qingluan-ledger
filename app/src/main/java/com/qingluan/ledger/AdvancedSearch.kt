@@ -113,6 +113,7 @@ fun searchPresets(raw: String): Map<String, BillSearch> =
         }
         .getOrDefault(emptyMap())
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AdvancedSearchDialog(
     vm: LedgerViewModel,
@@ -137,40 +138,51 @@ fun AdvancedSearchDialog(
             Column(
                 Modifier.heightIn(max = dialogContentMaxHeight())
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 SearchSection {
                     OutlinedTextField(
                         state.keyword,
                         { state = state.copy(keyword = it.take(200)) },
-                        Modifier.fillMaxWidth(),
-                        label = { Text("分类、备注关键词") },
+                        Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
+                        label = { Text("分类、备注关键词", style = MaterialTheme.typography.bodySmall) },
                         singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 SearchSection {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (key, label) ->
                             FilterChip(
                                 state.type == key,
                                 { state = state.copy(type = key, categoryId = 0) },
-                                label = { Text(label) },
+                                label = { Text(label, style = MaterialTheme.typography.labelLarge) },
                             )
                         }
                     }
                 }
                 SearchSection {
-                    ConfigSwitch("限制日期范围", state.from != null || state.to != null) { limited ->
-                        state =
-                            if (limited)
-                                state.copy(
-                                    from = LocalDate.now().withDayOfMonth(1),
-                                    to = LocalDate.now(),
-                                )
-                            else state.copy(from = null, to = null)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "限制日期范围",
+                            Modifier.weight(1f).padding(start = 12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Switch(
+                            state.from != null || state.to != null,
+                            onCheckedChange = { limited ->
+                                state =
+                                    if (limited)
+                                        state.copy(
+                                            from = LocalDate.now().withDayOfMonth(1),
+                                            to = LocalDate.now(),
+                                        )
+                                    else state.copy(from = null, to = null)
+                            },
+                        )
                     }
                     if (state.from != null || state.to != null)
-                        Row {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             DateButton(state.from ?: LocalDate.now().withDayOfMonth(1)) {
                                 state = state.copy(from = it)
                             }
@@ -185,17 +197,19 @@ fun AdvancedSearchDialog(
                         OutlinedTextField(
                             state.minimum,
                             { state = state.copy(minimum = it.take(27)) },
-                            Modifier.weight(1f),
-                            label = { Text("最小金额") },
+                            Modifier.weight(1f).defaultMinSize(minHeight = 52.dp),
+                            label = { Text("最小金额", style = MaterialTheme.typography.bodySmall) },
                             singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         )
                         OutlinedTextField(
                             state.maximum,
                             { state = state.copy(maximum = it.take(27)) },
-                            Modifier.weight(1f),
-                            label = { Text("最大金额") },
+                            Modifier.weight(1f).defaultMinSize(minHeight = 52.dp),
+                            label = { Text("最大金额", style = MaterialTheme.typography.bodySmall) },
                             singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         )
                     }
@@ -208,7 +222,11 @@ fun AdvancedSearchDialog(
                                 Text("取消币种限制")
                             }
                     }
-                    Text("金额按原币数值筛选，不进行换算。", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "金额按原币数值筛选，不进行换算。",
+                        Modifier.padding(horizontal = 12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
                 SearchSection {
                     ConfigChoice(
@@ -220,10 +238,10 @@ fun AdvancedSearchDialog(
                     }
                 }
                 SearchSection {
-                    Text("分类", style = MaterialTheme.typography.titleSmall)
+                    Text("分类", style = MaterialTheme.typography.labelMedium)
                     LazyVerticalGrid(
-                        GridCells.Adaptive(88.dp),
-                        Modifier.heightIn(max = 180.dp),
+                        GridCells.Adaptive(84.dp),
+                        Modifier.heightIn(max = 160.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         items(cats.filter { it.type == state.type }, key = { it.id }) { c ->
@@ -235,7 +253,15 @@ fun AdvancedSearchDialog(
                                             categoryId = if (state.categoryId == c.id) 0 else c.id
                                         )
                                 },
-                                label = { Text(c.name, maxLines = 1) },
+                                label = {
+                                    Text(
+                                        c.name,
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        overflow =
+                                            androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                },
                             )
                         }
                     }
@@ -378,14 +404,16 @@ fun AdvancedSearchDialog(
 private fun SearchSection(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .18f)),
     ) {
-        Column(
-            Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content,
-        )
+        ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
+            Column(
+                Modifier.padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                content = content,
+            )
+        }
     }
 }

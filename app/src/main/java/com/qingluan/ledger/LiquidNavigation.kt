@@ -25,104 +25,107 @@ fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
     val feedback = rememberAppFeedback("navigation")
     val shape = RoundedCornerShape(28.dp)
     val surface = MaterialTheme.colorScheme.surface
-    Row(
-        Modifier.navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 7.dp)
-            .fillMaxWidth()
-            .height(64.dp)
-            .shadow(6.dp, shape)
-            .clip(shape)
-            .hazeChild(
-                haze,
-                HazeStyle(
-                    backgroundColor = surface,
-                    tints = listOf(HazeTint(surface.copy(alpha = .42f))),
-                    blurRadius = 24.dp,
-                ),
-            )
-            .border(
-                1.dp,
-                Brush.linearGradient(
-                    listOf(
-                        Color.White.copy(alpha = .35f),
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = .3f),
-                        Color.White.copy(alpha = .12f),
-                    )
-                ),
-                shape,
-            )
-            .padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        listOf(
-                "明细" to Icons.Outlined.ReceiptLong,
-                "洞察" to Icons.Outlined.Insights,
-                "我的" to Icons.Outlined.Settings,
-            )
-            .forEach { (label, image) ->
-                val selected = route == label
-                val interaction = remember { MutableInteractionSource() }
-                val pressed by interaction.collectIsPressedAsState()
-                val scale by
-                    animateFloatAsState(
-                        if (pressed && motion)
-                            when (strength) {
-                                "subtle" -> .98f
-                                "lively" -> .89f
-                                else -> .93f
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.navigationBarsPadding()
+                .padding(horizontal = 32.dp, vertical = 6.dp)
+                .widthIn(max = 460.dp)
+                .fillMaxWidth()
+                .height(58.dp)
+                .shadow(6.dp, shape)
+                .clip(shape)
+                .hazeChild(
+                    haze,
+                    HazeStyle(
+                        backgroundColor = surface,
+                        tints = listOf(HazeTint(surface.copy(alpha = .42f))),
+                        blurRadius = 24.dp,
+                    ),
+                )
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = .35f),
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = .3f),
+                            Color.White.copy(alpha = .12f),
+                        )
+                    ),
+                    shape,
+                )
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            listOf(
+                    "明细" to Icons.Outlined.ReceiptLong,
+                    "洞察" to Icons.Outlined.Insights,
+                    "我的" to Icons.Outlined.Person,
+                )
+                .forEach { (label, image) ->
+                    val selected = route == label
+                    val interaction = remember { MutableInteractionSource() }
+                    val pressed by interaction.collectIsPressedAsState()
+                    val scale by
+                        animateFloatAsState(
+                            if (pressed && motion)
+                                when (strength) {
+                                    "subtle" -> .98f
+                                    "lively" -> .89f
+                                    else -> .93f
+                                }
+                            else 1f,
+                            if (motion) spring(dampingRatio = .7f, stiffness = 900f) else snap(),
+                            label = "导航按压",
+                        )
+                    val color by
+                        animateColorAsState(
+                            if (selected)
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = .75f)
+                            else Color.Transparent,
+                            tween(if (motion) UiMotion.FeedbackMillis else 0),
+                            label = "导航材质",
+                        )
+                    Column(
+                        Modifier.weight(1f)
+                            .fillMaxHeight()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
                             }
-                        else 1f,
-                        if (motion) spring(dampingRatio = .7f, stiffness = 900f)
-                        else snap(),
-                        label = "导航按压",
-                    )
-                val color by
-                    animateColorAsState(
-                        if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .75f)
-                        else Color.Transparent,
-                        tween(if (motion) UiMotion.FeedbackMillis else 0),
-                        label = "导航材质",
-                    )
-                Column(
-                    Modifier.weight(1f)
-                        .fillMaxHeight()
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        }
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(color)
-                        .clickable(interactionSource = interaction, indication = ripple()) {
-                            if (!selected) {
-                                feedback()
-                                select(label)
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(color)
+                            .clickable(interactionSource = interaction, indication = ripple()) {
+                                if (!selected) {
+                                    feedback()
+                                    select(label)
+                                }
                             }
-                        }
-                        .semantics {
-                            this.selected = selected
-                            role = Role.Tab
-                        },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        image,
-                        null,
-                        Modifier.size(20.dp),
-                        tint =
-                            if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color =
-                            if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                            .semantics {
+                                this.selected = selected
+                                role = Role.Tab
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            image,
+                            null,
+                            Modifier.size(20.dp),
+                            tint =
+                                if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color =
+                                if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-            }
+        }
     }
 }
 

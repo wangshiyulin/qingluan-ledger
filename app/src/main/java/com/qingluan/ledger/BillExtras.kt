@@ -19,7 +19,7 @@ suspend fun encodeReceipt(context: android.content.Context, uri: android.net.Uri
     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val image = decodeAvatar(context, uri)
         try {
-            val scale = 512f / maxOf(image.width, image.height)
+            val scale = (512f / maxOf(image.width, image.height)).coerceAtMost(1f)
             val resized =
                 Bitmap.createScaledBitmap(
                     image,

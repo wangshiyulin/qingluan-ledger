@@ -448,7 +448,8 @@ private fun RecurringEditor(
     var amount by remember {
         mutableStateOf(original?.let { Money.text(it.amount, it.currencyCode) } ?: "")
     }
-    var currency by remember { mutableStateOf(original?.currencyCode ?: "CNY") }
+    val mainCurrency = LocalMainCurrency.current
+    var currency by remember { mutableStateOf(original?.currencyCode ?: mainCurrency) }
     var category by remember {
         mutableStateOf(
             original?.categoryId?.toString()

@@ -59,7 +59,7 @@ fun HomeToolbar(
                     query,
                     change,
                     Modifier.fillMaxWidth()
-                        .heightIn(min=52.dp)
+                        .heightIn(min = 52.dp)
                         .focusRequester(focus)
                         .testTag("search-island")
                         .onGloballyPositioned { searchBounds(it.boundsInWindow()) },
@@ -88,6 +88,20 @@ fun HomeToolbar(
                 }
         }
         if (!search) {
+            val hidden = LocalExperience.current.hideAmounts
+            val toggleAmounts = LocalToggleAmounts.current
+            IconButton(
+                onClick = {
+                    feedback()
+                    toggleAmounts?.invoke()
+                }
+            ) {
+                Icon(
+                    if (hidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                    if (hidden) "临时显示金额" else "临时隐藏金额",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
             IconButton(
                 onClick = {
                     feedback()
@@ -104,7 +118,12 @@ fun HomeToolbar(
                 filter()
             }
         ) {
-            Icon(Icons.Outlined.Tune, "筛选",tint=if(filtered)MaterialTheme.colorScheme.primary else LocalContentColor.current)
+            Icon(
+                Icons.Outlined.Tune,
+                "筛选",
+                tint =
+                    if (filtered) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
         }
     }
 }

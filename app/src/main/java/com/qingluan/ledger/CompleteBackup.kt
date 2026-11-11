@@ -22,6 +22,9 @@ data class PersonalBackup(
     val experience: Experience = Experience(),
     val trashRetentionDays: Int = 30,
     val searchPresets: String = "{}",
+    val mainCurrency: String = "CNY",
+    val budgets: String = "[]",
+    val managedTags: String = "[]",
 )
 
 data class CompleteSnapshot(
@@ -43,12 +46,18 @@ object CompleteBackup {
         recurring: List<RecurringBill> = emptyList(),
     ): String {
         require(entries.size + trash.size <= 100000 && recurring.size <= 1000) { "备份记录数超过限制" }
+        require(Currencies.contains(personal.mainCurrency)) { "主币种无效" }
+        BudgetRules.decode(personal.budgets)
+        TagCatalog.decode(personal.managedTags)
         val a = personal.appearance
         val p =
             JSONObject()
                 .put("nickname", personal.nickname)
                 .put("trashRetentionDays", personal.trashRetentionDays)
                 .put("searchPresets", JSONObject(personal.searchPresets))
+                .put("mainCurrency", personal.mainCurrency)
+                .put("budgets", org.json.JSONArray(personal.budgets))
+                .put("managedTags", org.json.JSONArray(personal.managedTags))
                 .put("theme", personal.theme)
                 .put("palette", a.palette)
                 .put("pureBlack", a.pureBlack)
@@ -64,7 +73,7 @@ object CompleteBackup {
                 )
         val raw =
             JSONObject(Backup.encode(categories, entries))
-                .put("formatVersion", 7)
+                .put("formatVersion", 9)
                 .put(
                     "trash",
                     org.json.JSONArray().apply { trash.forEach { put(ArchiveJson.trash(it)) } },
@@ -87,7 +96,7 @@ object CompleteBackup {
         val j = JSONObject(raw)
         val version = j.get("formatVersion")
         require(
-            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..7L
+            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..9L
         ) {
             "不支持的备份版本"
         }
@@ -170,6 +179,15 @@ object CompleteBackup {
         require(searchPresets(savedSearches).size == JSONObject(savedSearches).length()) {
             "保存的搜索条件无效"
         }
+        val mainCurrency =
+            if (j.getLong("formatVersion") >= 8) p.getString("mainCurrency") else "CNY"
+        require(Currencies.contains(mainCurrency)) { "主币种无效" }
+        val budgets =
+            if (j.getLong("formatVersion") >= 8) p.getJSONArray("budgets").toString() else "[]"
+        BudgetRules.decode(budgets)
+        val managedTags =
+            if (j.getLong("formatVersion") >= 9) p.getJSONArray("managedTags").toString() else "[]"
+        TagCatalog.decode(managedTags)
         return CompleteSnapshot(
             categories,
             entries,
@@ -182,6 +200,9 @@ object CompleteBackup {
                 Experience.decode(p.optJSONObject("experience") ?: JSONObject()),
                 retention,
                 savedSearches,
+                mainCurrency,
+                budgets,
+                managedTags,
             ),
             trash,
             recurring,
@@ -232,6 +253,9 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                 Experience.decode(JSONObject(prefs[stringPreferencesKey("experience")] ?: "{}")),
                 prefs[intPreferencesKey("trashRetentionDays")] ?: 30,
                 prefs[stringPreferencesKey("searchPresets")] ?: "{}",
+                prefs[BudgetRules.mainCurrencyKey] ?: "CNY",
+                prefs[BudgetRules.key] ?: "[]",
+                prefs[TagCatalog.key] ?: "[]",
             )
         return repository.db.withTransaction {
             CompleteSnapshot(
@@ -320,6 +344,8 @@ class LocalDataManager(private val context: Context, private val repository: Rep
             data.entries.forEach { repository.dao.insert(it) }
             data.trash.forEach { repository.dao.addTrash(it) }
             data.recurring.forEach { repository.dao.addRecurring(it) }
+            // Legacy bill-only restores replace category IDs but carry no tag-template ownership.
+            if (data.personal == null) context.preferences.edit { it.remove(TagCatalog.key) }
             data.personal?.let { p ->
                 withContext(Dispatchers.IO) {
                     if (p.avatar == null) remove(avatar) else write(avatar, p.avatar)
@@ -328,6 +354,9 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                     prefs[stringPreferencesKey("experience")] = p.experience.json().toString()
                     prefs[intPreferencesKey("trashRetentionDays")] = p.trashRetentionDays
                     prefs[stringPreferencesKey("searchPresets")] = p.searchPresets
+                    prefs[BudgetRules.mainCurrencyKey] = p.mainCurrency
+                    prefs[BudgetRules.key] = p.budgets
+                    prefs[TagCatalog.key] = p.managedTags
                     prefs[stringPreferencesKey("nickname")] = p.nickname
                     prefs[stringPreferencesKey("theme")] = p.theme
                     prefs[stringPreferencesKey("palette")] = p.appearance.palette

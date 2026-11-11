@@ -15,6 +15,34 @@ import kotlinx.coroutines.sync.withLock
 class LedgerViewModel(app: Application) : AndroidViewModel(app) {
     val repository = Repository(app)
     val localData = LocalDataManager(app, repository)
+    val storage = StorageManagement(app, repository)
+    val managedTags =
+        app.preferences.data
+            .map { it[TagCatalog.key] ?: "[]" }
+            .distinctUntilChanged()
+            .map { runCatching { TagCatalog.decode(it) }.getOrDefault(emptyList()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    suspend fun saveManagedTag(original: ManagedTag?, next: ManagedTag) {
+        TagCatalog.validate(next)
+        require(repository.dao.allCategories().any { it.id == next.categoryId }) { "所属分类不存在" }
+        getApplication<Application>().preferences.edit { prefs ->
+            val current = TagCatalog.decode(prefs[TagCatalog.key] ?: "[]")
+            require(original == null || current.any { it.id == original.id }) { "标签已变化，请重新打开" }
+            prefs[TagCatalog.key] =
+                TagCatalog.encode(current.filterNot { it.id == original?.id } + next)
+        }
+    }
+
+    suspend fun deleteManagedTag(tag: ManagedTag) {
+        getApplication<Application>().preferences.edit { prefs ->
+            prefs[TagCatalog.key] =
+                TagCatalog.encode(
+                    TagCatalog.decode(prefs[TagCatalog.key] ?: "[]").filterNot { it.id == tag.id }
+                )
+        }
+    }
+
     private val operationMutex = Mutex()
     private val initialized = MutableStateFlow(false)
     val entries =
@@ -29,6 +57,53 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
                 emitAll(repository.dao.categories())
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val mainCurrency =
+        app.preferences.data
+            .map { it[BudgetRules.mainCurrencyKey]?.takeIf(Currencies::contains) ?: "CNY" }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "CNY")
+    val budgets =
+        app.preferences.data
+            .map { it[BudgetRules.key] ?: "[]" }
+            .distinctUntilChanged()
+            .map { runCatching { BudgetRules.decode(it) }.getOrDefault(emptyList()) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun mainCurrency(code: String) = action {
+        require(Currencies.contains(code)) { "币种无效" }
+        getApplication<Application>().preferences.edit { it[BudgetRules.mainCurrencyKey] = code }
+    }
+
+    suspend fun saveBudget(original: BudgetRule?, rule: BudgetRule) {
+        require(
+            rule.categoryId == 0L ||
+                repository.dao.allCategories().any {
+                    it.id == rule.categoryId && it.type == "EXPENSE"
+                }
+        ) {
+            "预算分类无效"
+        }
+        getApplication<Application>().preferences.edit { prefs ->
+            val existing = BudgetRules.decode(prefs[BudgetRules.key] ?: "[]")
+            require(original == null || existing.any { it.key == original.key }) { "预算已变化，请重新打开" }
+            require(existing.none { it.key == rule.key && it.key != original?.key }) {
+                "该币种和分类已有预算"
+            }
+            prefs[BudgetRules.key] =
+                BudgetRules.encode(existing.filterNot { it.key == original?.key } + rule)
+        }
+    }
+
+    suspend fun deleteBudget(rule: BudgetRule) {
+        getApplication<Application>().preferences.edit { prefs ->
+            prefs[BudgetRules.key] =
+                BudgetRules.encode(
+                    BudgetRules.decode(prefs[BudgetRules.key] ?: "[]").filterNot {
+                        it.key == rule.key
+                    }
+                )
+        }
+    }
+
     val theme =
         app.preferences.data
             .map { it[stringPreferencesKey("theme")] ?: "system" }

@@ -62,11 +62,16 @@ data class Totals(val income: Long, val expense: Long) {
 }
 
 fun totals(rows: List<Entry>): Totals {
-    require(rows.map { it.currencyCode }.distinct().size <= 1) { "不同币种不能合计" }
-    return Totals(
-        rows.filter { it.type == "INCOME" }.fold(0L) { a, b -> Math.addExact(a, b.amount) },
-        rows.filter { it.type == "EXPENSE" }.fold(0L) { a, b -> Math.addExact(a, b.amount) },
-    )
+    var code: String? = null
+    var income = 0L
+    var expense = 0L
+    for (row in rows) {
+        require(code == null || code == row.currencyCode) { "不同币种不能合计" }
+        code = row.currencyCode
+        if (row.type == "INCOME") income = Math.addExact(income, row.amount)
+        else if (row.type == "EXPENSE") expense = Math.addExact(expense, row.amount)
+    }
+    return Totals(income, expense)
 }
 
 fun Entry.date(): LocalDate =
@@ -76,7 +81,10 @@ data class DateSpan(val start: LocalDate, val end: LocalDate, val unit: String =
     val days
         get() = java.time.temporal.ChronoUnit.DAYS.between(start, end)
 
-    fun contains(e: Entry) = !e.date().isBefore(start) && e.date().isBefore(end)
+    fun contains(e: Entry): Boolean {
+        val date = e.date()
+        return !date.isBefore(start) && date.isBefore(end)
+    }
 
     companion object {
         fun month(d: LocalDate) =

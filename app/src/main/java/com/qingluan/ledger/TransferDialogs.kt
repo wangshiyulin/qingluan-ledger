@@ -237,9 +237,9 @@ fun ExportDialog(vm: LedgerViewModel, fixedIds: Set<Long>? = null, dismiss: () -
                 )
                 if (!valid) Text("开始日期不能晚于结束日期", color = MaterialTheme.colorScheme.error)
                 if (kind != "csv" && complete)
-                    ConfigSwitch("完整备份（资料、回收站、周期规则）", includePersonal) { includePersonal = it }
+                    ConfigSwitch("完整备份（资料、回收站、周期规则、预算、标签模板）", includePersonal) { includePersonal = it }
                 if (kind != "csv" && (!complete || !includePersonal))
-                    Text("仅导出所选账单及分类，不包含回收站和周期规则。", style = MaterialTheme.typography.bodySmall)
+                    Text("仅导出所选账单及分类，不包含回收站、周期规则、预算和标签模板。", style = MaterialTheme.typography.bodySmall)
                 if (kind == "csv") {
                     Text("日期、时间、收支、分类、币种、金额为必需列", style = MaterialTheme.typography.labelSmall)
                     ConfigSwitch("备注列", notes) { notes = it }
@@ -560,7 +560,7 @@ internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () 
             title = { Text(if (mode == "full") "覆盖全部本地数据？" else "替换所选范围的账单？") },
             text = {
                 Text(
-                    if (mode == "full") "当前账单、分类、回收站、周期记账及备份包含的资料设置将被替换。旧备份未包含的回收站或周期记账将清空本地对应数据。"
+                    if (mode == "full") "当前账单、分类、回收站、周期记账、预算、标签模板及备份包含的资料设置将被替换。旧备份未包含的回收站、周期记账、预算或标签模板会清空对应数据，未包含主币种时恢复为CNY。"
                     else "范围外账单将保留。"
                 )
             },

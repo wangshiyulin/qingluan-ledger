@@ -387,6 +387,11 @@ class WebDavStore(private val context: Context) {
             }
         }
 
+    suspend fun clearRecovery() = withContext(Dispatchers.IO) {
+        recovery.delete()
+        check(!recovery.baseFile.exists() && !File(recovery.baseFile.path + ".bak").exists()) { "恢复副本未能删除" }
+    }
+
     suspend fun recoveryBytes(): ByteArray =
         withContext(Dispatchers.IO) { recovery.openRead().use { it.readBytes() } }
 
