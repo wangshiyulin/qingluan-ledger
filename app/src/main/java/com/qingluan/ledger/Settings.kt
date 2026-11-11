@@ -43,6 +43,9 @@ fun Settings(
     else if (page == "回收站") TrashPage(vm, back)
     else if (page == "存储空间管理") StoragePage(vm, back)
     else if (page == "标签管理") TagManagementPage(vm, cats, back)
+    else if (page in settingsSectionPages) SettingsSectionPage(page, back, open)
+    else if (page == "标签统计") TagInsightsPage(vm.entries.collectAsState().value, cats, back)
+    else if (page == "分期账单") InstallmentPage(vm, cats, back)
     else if (page == "周期账单") RecurringPage(vm, cats, back)
     else if (page == "预算管理") BudgetPage(vm, cats, back)
     else if (page == "其他设置") OtherSettingsPage(vm, back)
@@ -56,7 +59,6 @@ fun Settings(
                 target = null
             },
             onMigrate = { migrating = true },
-            onTags = { open("标签管理") },
         ) { type, ids ->
             vm.action { vm.repository.reorderCategories(type, ids) }
         }
@@ -111,7 +113,6 @@ fun Settings(
                     }
                 }
                 if (page == "个性化") {
-                    item { PreferenceCard("列表显示", Icons.Outlined.ViewAgenda, "") { open("列表显示") } }
                     item { PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") } }
                     item { PreferenceCard("统计偏好", Icons.Outlined.QueryStats, "") { open("统计偏好") } }
                 }
@@ -127,10 +128,11 @@ fun Settings(
                             ProtectionControls(vm)
                         }
                     }
-                if (page == "本地数据")
+                if (page == "数据管理")
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             TransferTools(vm)
+                            SettingsActionCard("同步", Icons.Outlined.CloudSync, { open("同步") })
                             SettingsActionCard(
                                 "数据保护",
                                 Icons.Outlined.VerifiedUser,
@@ -314,11 +316,9 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
         ProfileHeader(vm, rows)
         listOf(
                 "个性化" to Icons.Outlined.Palette,
-                "分类管理" to Icons.Outlined.Category,
-                "周期账单" to Icons.Outlined.EventRepeat,
-                "预算管理" to Icons.Outlined.AccountBalanceWallet,
-                "本地数据" to Icons.Outlined.FolderOpen,
-                "同步" to Icons.Outlined.CloudSync,
+                "分类与标签" to Icons.Outlined.Category,
+                "账单管理" to Icons.Outlined.EventNote,
+                "数据管理" to Icons.Outlined.FolderOpen,
                 "其他设置" to Icons.Outlined.MoreHoriz,
                 "关于" to Icons.Outlined.Info,
             )

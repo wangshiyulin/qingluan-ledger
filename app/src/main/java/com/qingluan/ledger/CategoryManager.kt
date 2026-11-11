@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +33,6 @@ fun CategoryManager(
     edit: (Category) -> Unit,
     delete: (Category) -> Unit,
     onMigrate: (() -> Unit)? = null,
-    onTags: (() -> Unit)? = null,
     reorder: (String, List<Long>) -> Unit,
 ) {
     val effects = LocalEffects.current
@@ -94,8 +92,6 @@ fun CategoryManager(
                     modifier = Modifier.weight(1f).padding(end = 8.dp),
                 )
             }
-            if (onTags != null)
-                IconButton(onClick = onTags) { Icon(Icons.AutoMirrored.Outlined.Label, "标签管理") }
             if (onMigrate != null)
                 IconButton(onClick = onMigrate) { Icon(Icons.Outlined.SwapHoriz, "分类迁移") }
         }

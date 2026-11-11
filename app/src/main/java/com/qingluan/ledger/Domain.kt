@@ -182,7 +182,7 @@ fun entrySubtitle(entry: Entry, display: Experience): String =
                         .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
                 )
             if (display.showNote && entry.note.isNotBlank()) add(entry.note)
-            if (entry.tags.isNotBlank()) add(entry.tags)
+            if (display.showTags && entry.tags.isNotBlank()) add(entry.tags)
             if (entry.receipt.isNotBlank()) add("票据")
         }
         .joinToString(" · ")

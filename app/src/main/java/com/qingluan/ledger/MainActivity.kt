@@ -206,6 +206,7 @@ fun LedgerApp(
         }
         val back by nav.currentBackStackEntryAsState()
         val route = back?.destination?.route ?: "明细"
+        val secondaryRoute = route in secondaryPages || route in legacySettingsRoutes
         var editId by rememberSaveable { mutableLongStateOf(0L) }
         val edit =
             remember(rows, editId) { if (editId == 0L) null else rows.find { it.id == editId } }
@@ -285,7 +286,7 @@ fun LedgerApp(
                     snackbarHost = { SnackbarHost(snack) },
                     containerColor = MaterialTheme.colorScheme.background,
                     floatingActionButton = {
-                        if (route !in secondaryPages && !selecting)
+                        if (!secondaryRoute && !selecting)
                             FloatingActionButton(
                                 onClick = {
                                     feedback()
@@ -304,7 +305,7 @@ fun LedgerApp(
                             }
                     },
                     bottomBar = {
-                        if (route !in secondaryPages)
+                        if (!secondaryRoute)
                             LiquidNavigation(route, haze) { label ->
                                 if (label != nav.currentDestination?.route) {
                                     navigationFocus.clearFocus()
@@ -410,13 +411,23 @@ fun LedgerApp(
                                         }
                                     }
                                 }
+                                legacySettingsRoutes.forEach { (oldRoute, targetRoute) ->
+                                    composable(oldRoute) {
+                                        LaunchedEffect(oldRoute) {
+                                            nav.navigate(targetRoute) {
+                                                popUpTo(oldRoute) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
             BackupReminder(vm)
-            if (sheetOpen && route !in secondaryPages) {
+            if (sheetOpen && !secondaryRoute) {
                 EntrySheet(
                     dismiss = {
                         sheetOpen = false

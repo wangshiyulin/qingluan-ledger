@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 
 @Composable
@@ -44,6 +45,7 @@ fun BudgetPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
                 }
             result
         }
+    val effectiveRules = remember(rules, month) { effectiveBudgetRules(rules, month) }
     val index = remember(cats) { cats.associateBy { it.id } }
     Column(Modifier.fillMaxSize()) {
         FeatureHeader("预算管理", back) {
@@ -60,9 +62,9 @@ fun BudgetPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
             Text("${month.year}年${month.monthValue}月")
             Icon(Icons.Outlined.ArrowDropDown, null)
         }
-        if (rules.isEmpty())
+        if (effectiveRules.isEmpty())
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("暂无预算")
+                Text("本月暂无预算")
             }
         else
             LazyColumn(
@@ -72,13 +74,13 @@ fun BudgetPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
             ) {
                 item {
                     Text(
-                        "每月预算 · 分类预算独立统计",
+                        "本月预算 · 分类预算独立统计",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                items(rules, key = { "${it.currency}:${it.categoryId}" }) { rule ->
-                    val used = spent[rule.key] ?: 0L
+                items(effectiveRules, key = { "${it.currency}:${it.categoryId}" }) { rule ->
+                    val used = spent[rule.scopeKey] ?: 0L
                     val remaining = rule.limit - used
                     val tint =
                         if (remaining < 0) MaterialTheme.colorScheme.error
@@ -135,7 +137,7 @@ fun BudgetPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
             period = false
         }
     if (adding || editing != null)
-        BudgetEditor(vm, cats, editing) {
+        BudgetEditor(vm, cats, editing, month) {
             adding = false
             editing = null
         }
@@ -146,6 +148,7 @@ private fun BudgetEditor(
     vm: LedgerViewModel,
     cats: List<Category>,
     original: BudgetRule?,
+    month: LocalDate,
     dismiss: () -> Unit,
 ) {
     val defaultCurrency = LocalMainCurrency.current
@@ -168,7 +171,11 @@ private fun BudgetEditor(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text("每月使用此预算", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "仅用于${month.year}年${month.monthValue}月" +
+                        if (original?.month == "") "，其他月份继续使用原有每月预算" else "",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(
                         onClick = { currencyOpen = true },
@@ -225,7 +232,15 @@ private fun BudgetEditor(
                         submitting = true
                         vm.action {
                             try {
-                                vm.saveBudget(original, BudgetRule(currency, categoryId, limit))
+                                vm.saveBudget(
+                                    original,
+                                    BudgetRule(
+                                        currency,
+                                        categoryId,
+                                        limit,
+                                        YearMonth.from(month).toString(),
+                                    ),
+                                )
                                 dismiss()
                             } finally {
                                 submitting = false
@@ -287,8 +302,8 @@ private fun BudgetEditor(
     if (deleting && original != null)
         GlassAlertDialog(
             onDismissRequest = { deleting = false },
-            title = { Text("删除预算？") },
-            text = { Text("账单不会被删除。") },
+            title = { Text("删除本月预算？") },
+            text = { Text("仅停用${month.year}年${month.monthValue}月的此项预算，其他月份不受影响。账单不会被删除。") },
             confirmButton = {
                 TextButton(
                     enabled = !submitting,
@@ -296,7 +311,13 @@ private fun BudgetEditor(
                         submitting = true
                         vm.action {
                             try {
-                                vm.deleteBudget(original)
+                                vm.saveBudget(
+                                    original,
+                                    original.copy(
+                                        limit = 0L,
+                                        month = YearMonth.from(month).toString(),
+                                    ),
+                                )
                                 deleting = false
                                 dismiss()
                             } finally {

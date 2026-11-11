@@ -33,6 +33,7 @@ data class CompleteSnapshot(
     val personal: PersonalBackup?,
     val trash: List<TrashRecord> = emptyList(),
     val recurring: List<RecurringBill> = emptyList(),
+    val installments: List<InstallmentPlan> = emptyList(),
 )
 
 object CompleteBackup {
@@ -44,8 +45,15 @@ object CompleteBackup {
         personal: PersonalBackup,
         trash: List<TrashRecord> = emptyList(),
         recurring: List<RecurringBill> = emptyList(),
+        installments: List<InstallmentPlan> = emptyList(),
     ): String {
-        require(entries.size + trash.size <= 100000 && recurring.size <= 1000) { "备份记录数超过限制" }
+        require(
+            entries.size + trash.size <= 100000 &&
+                recurring.size <= 1000 &&
+                installments.size <= 1000
+        ) {
+            "备份记录数超过限制"
+        }
         require(Currencies.contains(personal.mainCurrency)) { "主币种无效" }
         BudgetRules.decode(personal.budgets)
         TagCatalog.decode(personal.managedTags)
@@ -73,7 +81,7 @@ object CompleteBackup {
                 )
         val raw =
             JSONObject(Backup.encode(categories, entries))
-                .put("formatVersion", 9)
+                .put("formatVersion", 10)
                 .put(
                     "trash",
                     org.json.JSONArray().apply { trash.forEach { put(ArchiveJson.trash(it)) } },
@@ -82,6 +90,12 @@ object CompleteBackup {
                     "recurring",
                     org.json.JSONArray().apply {
                         recurring.forEach { put(ArchiveJson.recurring(it)) }
+                    },
+                )
+                .put(
+                    "installments",
+                    org.json.JSONArray().apply {
+                        installments.forEach { put(Installments.encode(it)) }
                     },
                 )
                 .put("personal", p)
@@ -96,7 +110,8 @@ object CompleteBackup {
         val j = JSONObject(raw)
         val version = j.get("formatVersion")
         require(
-            version is Number && java.math.BigDecimal(version.toString()).longValueExact() in 1L..9L
+            version is Number &&
+                java.math.BigDecimal(version.toString()).longValueExact() in 1L..10L
         ) {
             "不支持的备份版本"
         }
@@ -188,6 +203,18 @@ object CompleteBackup {
         val managedTags =
             if (j.getLong("formatVersion") >= 9) p.getJSONArray("managedTags").toString() else "[]"
         TagCatalog.decode(managedTags)
+        val installments =
+            if (j.getLong("formatVersion") >= 10) {
+                val items = j.getJSONArray("installments")
+                require(items.length() <= 1000) { "分期记录过多" }
+                (0 until items.length()).map {
+                    Installments.decode(items.getJSONObject(it)).also { plan ->
+                        require(plan.id > 0)
+                        Installments.validate(plan, categories)
+                    }
+                }
+            } else emptyList()
+        require(installments.map { it.id }.distinct().size == installments.size) { "分期ID重复" }
         return CompleteSnapshot(
             categories,
             entries,
@@ -206,6 +233,7 @@ object CompleteBackup {
             ),
             trash,
             recurring,
+            installments,
         )
     }
 }
@@ -264,6 +292,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                 p,
                 repository.dao.allTrash(),
                 repository.dao.allRecurring(),
+                repository.dao.allInstallments(),
             )
         }
     }
@@ -278,6 +307,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                 data.personal!!,
                 data.trash,
                 data.recurring,
+                data.installments,
             )
         }
     }
@@ -305,6 +335,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                         old.personal!!,
                         old.trash,
                         old.recurring,
+                        old.installments,
                     )
                     .toByteArray(Charsets.UTF_8),
             )
@@ -336,6 +367,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
 
     private suspend fun apply(data: CompleteSnapshot) {
         repository.db.withTransaction {
+            repository.dao.clearInstallments()
             repository.dao.clearRecurring()
             repository.dao.clearTrash()
             repository.dao.clear()
@@ -344,6 +376,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
             data.entries.forEach { repository.dao.insert(it) }
             data.trash.forEach { repository.dao.addTrash(it) }
             data.recurring.forEach { repository.dao.addRecurring(it) }
+            data.installments.forEach { repository.dao.addInstallment(it) }
             // Legacy bill-only restores replace category IDs but carry no tag-template ownership.
             if (data.personal == null) context.preferences.edit { it.remove(TagCatalog.key) }
             data.personal?.let { p ->
@@ -395,6 +428,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                         old.personal!!,
                         old.trash,
                         old.recurring,
+                        old.installments,
                     )
                     .toByteArray(Charsets.UTF_8),
             )

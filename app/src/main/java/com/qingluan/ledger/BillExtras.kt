@@ -1,18 +1,11 @@
 package com.qingluan.ledger
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.util.Base64
 
 fun validateBillExtras(tags: String, receipt: String) {
     require(tags.length <= 300) { "标签超过300字" }
-    require(receipt.length <= 400000) { "票据图片过大" }
-    if (receipt.isNotEmpty()) {
-        val bytes = Base64.decode(receipt, Base64.NO_WRAP)
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        require(bounds.outWidth in 1..1024 && bounds.outHeight in 1..1024) { "票据图片无效" }
-    }
+    ReceiptImages.validate(receipt)
 }
 
 suspend fun encodeReceipt(context: android.content.Context, uri: android.net.Uri): String =

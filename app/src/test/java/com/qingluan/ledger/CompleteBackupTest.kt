@@ -73,7 +73,7 @@ class CompleteBackupTest {
             it[BudgetRules.key] = budgets
         }
         val raw = manager.export()
-        assertEquals(9, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(10, JSONObject(raw).getInt("formatVersion"))
         val image = File(context.filesDir, "avatar.jpg").readBytes()
         repo.dao.clear()
         context.preferences.updateData { emptyPreferences() }

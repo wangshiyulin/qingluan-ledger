@@ -87,6 +87,29 @@ fun decodeTransfer(raw: String, kind: String, password: CharArray): ImportPrevie
     }
 }
 
+/** Read binary/text transfers with the same bounded size before any parser allocation. */
+fun readTransferBytes(input: java.io.InputStream): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        if (read == 0) continue
+        require(output.size().toLong() + read <= CompleteBackup.MAX_BYTES) { "文件超过16MB限制" }
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
+}
+
+fun decodeTransfer(bytes: ByteArray, kind: String, password: CharArray): ImportPreview {
+    require(bytes.size <= CompleteBackup.MAX_BYTES) { "文件超过16MB限制" }
+    if (kind == "xlsx") {
+        val result = XlsxTransfer.preview(bytes)
+        return ImportPreview(result.bills, null, kind, result.errors, result.totalRows)
+    }
+    return decodeTransfer(bytes.toString(Charsets.UTF_8), kind, password)
+}
+
 /** Counts reflect the same ordered occurrence matching used by CsvImport.apply. */
 data class ImportCounts(
     val total: Int,
@@ -109,6 +132,12 @@ fun importCounts(
     val selected = data.bills.filter { range.contains(it) }
     val remaining = if (replace) existing.filterNot { range.contains(it) } else existing
     val duplicates = CsvImport.duplicateFlags(categories, remaining, selected).count { it }
-    return ImportCounts(data.totalRows, data.bills.size, selected.size - duplicates, duplicates,
-        data.errors.size, data.bills.size - selected.size)
+    return ImportCounts(
+        data.totalRows,
+        data.bills.size,
+        selected.size - duplicates,
+        duplicates,
+        data.errors.size,
+        data.bills.size - selected.size,
+    )
 }

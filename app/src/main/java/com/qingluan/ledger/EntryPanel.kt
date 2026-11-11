@@ -233,10 +233,23 @@ fun EntryPanel(
                             }
                         ),
                 )
-                EntryTagSelector(category, tags, { tags = it }, onManageTags)
-                ReceiptSelector(receipt) {
-                    receipt = it
-                    updateDraftReceipt?.invoke(it)
+                Surface(
+                    Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            EntryTagSelector(category, tags, { tags = it }, onManageTags)
+                        }
+                        ReceiptSelector(receipt) {
+                            receipt = it
+                            updateDraftReceipt?.invoke(it)
+                        }
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

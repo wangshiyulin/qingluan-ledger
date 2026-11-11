@@ -53,9 +53,16 @@ class TagEntryTest {
             }
         }
         compose.onNodeWithText("测试分类").performClick()
+        compose.onNodeWithContentDescription("选择票据").assertExists()
+        val tagBounds = compose.onNodeWithText("选择标签").fetchSemanticsNode().boundsInRoot
+        val receiptBounds = compose.onNodeWithContentDescription("选择票据").fetchSemanticsNode().boundsInRoot
+        assertEquals(tagBounds.center.y, receiptBounds.center.y, 1f)
+        compose.onNodeWithText("管理标签").assertDoesNotExist()
+        compose.onNodeWithText("选择标签").performClick()
         compose.onNodeWithText("午餐").assertExists().performClick()
         compose.onNodeWithText("其他标签").assertDoesNotExist()
         assertNull(saved)
+        compose.onNode(hasText("完成") and hasAnyAncestor(isDialog())).performClick()
         compose.onNodeWithText("5").performClick()
         compose.onNodeWithText("完成").performClick()
         compose.runOnIdle {

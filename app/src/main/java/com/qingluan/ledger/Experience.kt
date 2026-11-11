@@ -20,6 +20,7 @@ data class Experience(
     val rememberStats: Boolean = true,
     val statDate: String = "",
     val backupDays: String = "off",
+    val showTags: Boolean = true,
 ) {
     fun json(): JSONObject =
         JSONObject().apply {
@@ -32,6 +33,7 @@ data class Experience(
             put("density", density)
             put("showTime", showTime)
             put("showNote", showNote)
+            put("showTags", showTags)
             put("hideAmounts", hideAmounts)
             put("statUnit", statUnit)
             put("statType", statType)
@@ -64,6 +66,7 @@ data class Experience(
                 j.optBoolean("rememberStats", true),
                 date,
                 choice("backupDays", "off", setOf("off", "7", "30")),
+                j.optBoolean("showTags", true),
             )
         }
     }

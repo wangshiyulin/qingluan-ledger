@@ -53,7 +53,7 @@ class TagStorageTest {
     fun backupIncludesCatalogAndOlderFormatsDefaultToEmpty() {
         val tags = TagCatalog.encode(listOf(ManagedTag(categoryId = 1, name = "午餐")))
         val raw = CompleteBackup.encode(categories, emptyList(), PersonalBackup(managedTags = tags))
-        assertEquals(9, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(10, JSONObject(raw).getInt("formatVersion"))
         assertEquals(
             TagCatalog.decode(tags),
             TagCatalog.decode(CompleteBackup.decode(raw).personal!!.managedTags),

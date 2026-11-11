@@ -75,7 +75,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun saveBudget(original: BudgetRule?, rule: BudgetRule) {
         require(
-            rule.categoryId == 0L ||
+            rule.limit == 0L ||
+                rule.categoryId == 0L ||
                 repository.dao.allCategories().any {
                     it.id == rule.categoryId && it.type == "EXPENSE"
                 }
@@ -83,26 +84,23 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
             "预算分类无效"
         }
         getApplication<Application>().preferences.edit { prefs ->
-            val existing = BudgetRules.decode(prefs[BudgetRules.key] ?: "[]")
-            require(original == null || existing.any { it.key == original.key }) { "预算已变化，请重新打开" }
-            require(existing.none { it.key == rule.key && it.key != original?.key }) {
-                "该币种和分类已有预算"
-            }
-            prefs[BudgetRules.key] =
-                BudgetRules.encode(existing.filterNot { it.key == original?.key } + rule)
-        }
-    }
-
-    suspend fun deleteBudget(rule: BudgetRule) {
-        getApplication<Application>().preferences.edit { prefs ->
             prefs[BudgetRules.key] =
                 BudgetRules.encode(
-                    BudgetRules.decode(prefs[BudgetRules.key] ?: "[]").filterNot {
-                        it.key == rule.key
-                    }
+                    updatedMonthlyBudgets(
+                        BudgetRules.decode(prefs[BudgetRules.key] ?: "[]"),
+                        original,
+                        rule,
+                    )
                 )
         }
     }
+
+    val installments =
+        flow {
+                initialized.filter { it }.first()
+                emitAll(repository.dao.installmentPlans())
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val theme =
         app.preferences.data
@@ -138,7 +136,7 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    var pendingExport: String? = null
+    var pendingExport: ByteArray? = null
     var pendingFullBackup = false
     var pendingExportCount = 0
 

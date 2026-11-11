@@ -161,7 +161,7 @@ object CsvImport {
                 val category = original(get("分类"), modern)
                 require(category.isNotBlank()) { "分类不能为空" }
                 require(original(get("标签"), modern).length <= 300) { "标签超过300字" }
-                require(get("票据").length <= 400000) { "票据图片过大" }
+                require(get("票据").length <= ReceiptImages.MAX_TOTAL_CHARS) { "票据图片过大" }
                 try {
                     validateBillExtras(original(get("标签"), modern), get("票据"))
                 } catch (_: Exception) {

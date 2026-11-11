@@ -80,6 +80,29 @@ interface LedgerDao {
     @Query("UPDATE recurring_bills SET categoryId=:target WHERE categoryId=:source")
     suspend fun migrateRecurring(source: Long, target: Long)
 
+    @Query("SELECT * FROM installment_plans ORDER BY nextDate, id")
+    fun installmentPlans(): Flow<List<InstallmentPlan>>
+
+    @Query("SELECT * FROM installment_plans ORDER BY nextDate, id")
+    suspend fun allInstallments(): List<InstallmentPlan>
+
+    @Query("SELECT * FROM installment_plans WHERE id=:id")
+    suspend fun installment(id: Long): InstallmentPlan?
+
+    @Insert suspend fun addInstallment(plan: InstallmentPlan): Long
+
+    @Update suspend fun updateInstallment(plan: InstallmentPlan)
+
+    @Query("DELETE FROM installment_plans WHERE id=:id") suspend fun deleteInstallment(id: Long)
+
+    @Query("DELETE FROM installment_plans") suspend fun clearInstallments()
+
+    @Query("SELECT COUNT(*) FROM installment_plans WHERE categoryId=:id")
+    suspend fun installmentReferences(id: Long): Int
+
+    @Query("UPDATE installment_plans SET categoryId=:target WHERE categoryId=:source")
+    suspend fun migrateInstallments(source: Long, target: Long)
+
     @Query("SELECT * FROM categories ORDER BY sortOrder,id") fun categories(): Flow<List<Category>>
 
     @Query("SELECT * FROM transactions") suspend fun allEntries(): List<Entry>
@@ -119,14 +142,32 @@ interface LedgerDao {
 }
 
 @Database(
-    entities = [Entry::class, Category::class, TrashRecord::class, RecurringBill::class],
-    version = 4,
+    entities =
+        [
+            Entry::class,
+            Category::class,
+            TrashRecord::class,
+            RecurringBill::class,
+            InstallmentPlan::class,
+        ],
+    version = 5,
     exportSchema = true,
 )
 abstract class LedgerDb : RoomDatabase() {
     abstract fun dao(): LedgerDao
 
     companion object {
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS installment_plans (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, name TEXT NOT NULL, categoryId INTEGER NOT NULL, currencyCode TEXT NOT NULL, principal INTEGER NOT NULL, fee INTEGER NOT NULL, terms INTEGER NOT NULL, paidTerms INTEGER NOT NULL, nextDate TEXT NOT NULL, anchorDay INTEGER NOT NULL, enabled INTEGER NOT NULL, note TEXT NOT NULL, FOREIGN KEY(categoryId) REFERENCES categories(id) ON UPDATE NO ACTION ON DELETE RESTRICT)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_installment_plans_categoryId ON installment_plans(categoryId)"
+                    )
+                }
+            }
         val MIGRATION_3_4 =
             object : Migration(3, 4) {
                 override fun migrate(db: SupportSQLiteDatabase) {
@@ -167,7 +208,12 @@ abstract class LedgerDb : RoomDatabase() {
 class Repository(context: Context, databaseName: String = "qingluan.db") {
     val db =
         Room.databaseBuilder(context, LedgerDb::class.java, databaseName)
-            .addMigrations(LedgerDb.MIGRATION_1_2, LedgerDb.MIGRATION_2_3, LedgerDb.MIGRATION_3_4)
+            .addMigrations(
+                LedgerDb.MIGRATION_1_2,
+                LedgerDb.MIGRATION_2_3,
+                LedgerDb.MIGRATION_3_4,
+                LedgerDb.MIGRATION_4_5,
+            )
             .build()
     val dao = db.dao()
 
@@ -238,10 +284,15 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
         db.withTransaction {
             val same = dao.allCategories().filter { it.type == c.type && it.id != c.id }
             require(same.isNotEmpty()) { "每种类型至少保留一个分类" }
-            if (dao.references(c.id) > 0 || dao.recurringReferences(c.id) > 0) {
+            if (
+                dao.references(c.id) > 0 ||
+                    dao.recurringReferences(c.id) > 0 ||
+                    dao.installmentReferences(c.id) > 0
+            ) {
                 require(same.any { it.id == target }) { "请先选择历史账单迁移分类" }
                 dao.migrate(c.id, target!!, System.currentTimeMillis())
                 dao.migrateRecurring(c.id, target)
+                dao.migrateInstallments(c.id, target)
             }
             dao.deleteCategory(c.id)
         }
@@ -280,6 +331,7 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
     suspend fun restore(raw: String) {
         val (cs, es) = withContext(Dispatchers.Default) { Backup.decode(raw) }
         db.withTransaction {
+            dao.clearInstallments()
             dao.clearRecurring()
             dao.clearTrash()
             dao.clear()

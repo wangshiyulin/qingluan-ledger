@@ -31,7 +31,6 @@ fun EntryTagSelector(
     var error by remember { mutableStateOf("") }
     var allTags by remember { mutableStateOf(false) }
     val selected = remember(tags) { TagCatalog.names(tags).toSet() }
-    val inline = remember(choices, selected) { (selected.toList() + choices).distinct().take(8) }
     val feedback = rememberAppFeedback()
     fun toggle(name: String) {
         feedback()
@@ -42,59 +41,63 @@ fun EntryTagSelector(
             }
             .onFailure { error = it.message ?: "无法选择标签" }
     }
-    if (choices.isNotEmpty() || manage != null)
-        Column {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (selected.isEmpty()) "标签" else "标签（${selected.size}）",
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                if (manage != null) TextButton(onClick = manage) { Text("管理标签") }
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                inline.forEach { name ->
-                    FilterChip(
-                        name in selected,
-                        onClick = { toggle(name) },
-                        label = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    )
-                }
-            }
-            if (choices.size > 8)
-                TextButton(onClick = { allTags = true }) { Text("全部标签（${choices.size}）") }
-            if (error.isNotEmpty())
-                Text(
-                    error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-        }
+    TextButton(
+        onClick = {
+            feedback()
+            allTags = true
+        },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(
+            if (selected.isEmpty()) "选择标签" else selected.joinToString("、"),
+            modifier = Modifier.fillMaxWidth(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+            color =
+                if (selected.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.primary,
+        )
+    }
     if (allTags)
         GlassAlertDialog(
             onDismissRequest = { allTags = false },
             title = { Text("选择标签") },
             text = {
                 Column {
-                    LazyVerticalGrid(
-                        GridCells.Adaptive(88.dp),
-                        Modifier.heightIn(max = minOf(320.dp, dialogContentMaxHeight())),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        items(choices, key = { it }) { name ->
-                            FilterChip(
-                                name in selected,
-                                { toggle(name) },
-                                label = {
-                                    Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                },
-                            )
+                    if (choices.isEmpty()) Text("暂无标签", style = MaterialTheme.typography.bodyMedium)
+                    else
+                        LazyVerticalGrid(
+                            GridCells.Adaptive(88.dp),
+                            Modifier.heightIn(max = minOf(320.dp, dialogContentMaxHeight())),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(choices, key = { it }) { name ->
+                                FilterChip(
+                                    name in selected,
+                                    { toggle(name) },
+                                    label = {
+                                        Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    },
+                                )
+                            }
                         }
-                    }
                     if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
                 }
             },
             confirmButton = { TextButton(onClick = { allTags = false }) { Text("完成") } },
+            dismissButton = {
+                if (manage != null)
+                    TextButton(
+                        onClick = {
+                            allTags = false
+                            manage()
+                        }
+                    ) {
+                        Text("管理标签")
+                    }
+            },
         )
 }
 
@@ -102,20 +105,32 @@ fun EntryTagSelector(
 fun TagManagementPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
     val tags by vm.managedTags.collectAsState()
     var selectedCategory by remember { mutableLongStateOf(0) }
+    var selectedType by remember { mutableStateOf("all") }
     var picker by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<ManagedTag?>(null) }
     var adding by remember { mutableStateOf(false) }
     val index = remember(cats) { cats.associateBy { it.id } }
     val visible =
-        remember(tags, selectedCategory) {
-            tags.filter { selectedCategory == 0L || it.categoryId == selectedCategory }
+        remember(tags, selectedCategory, selectedType, index) {
+            tags.filter {
+                (selectedCategory == 0L || it.categoryId == selectedCategory) &&
+                    (selectedType == "all" || index[it.categoryId]?.type == selectedType)
+            }
         }
     Column(Modifier.fillMaxSize()) {
         FeatureHeader("标签管理", back) {
             TextButton(onClick = { adding = true }, enabled = cats.isNotEmpty()) { Text("新增") }
         }
         TextButton(onClick = { picker = true }, modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(if (selectedCategory == 0L) "所有分类" else index[selectedCategory]?.name ?: "已删除分类")
+            val typeLabel =
+                when (selectedType) {
+                    "INCOME" -> "收入 · "
+                    "EXPENSE" -> "支出 · "
+                    else -> ""
+                }
+            val categoryLabel =
+                if (selectedCategory == 0L) "所有分类" else index[selectedCategory]?.name ?: "已删除分类"
+            Text(typeLabel + categoryLabel)
             Icon(Icons.Outlined.ArrowDropDown, null)
         }
         if (visible.isEmpty())
@@ -157,12 +172,15 @@ fun TagManagementPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Uni
             }
     }
     if (picker)
-        TagCategoryPicker(cats, selectedCategory, true, { picker = false }) {
-            selectedCategory = it
+        TagCategoryPicker(cats, selectedCategory, selectedType, true, { picker = false }) {
+            category,
+            type ->
+            selectedType = type
+            selectedCategory = category
             picker = false
         }
     if (adding || editing != null)
-        TagEditor(vm, cats, editing, selectedCategory) {
+        TagEditor(vm, cats, editing, selectedCategory, selectedType) {
             adding = false
             editing = null
         }
@@ -174,6 +192,7 @@ private fun TagEditor(
     cats: List<Category>,
     original: ManagedTag?,
     preferred: Long,
+    preferredType: String,
     dismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(original?.name ?: "") }
@@ -181,7 +200,7 @@ private fun TagEditor(
         mutableLongStateOf(
             original?.categoryId
                 ?: cats.find { it.id == preferred }?.id
-                ?: cats.firstOrNull()?.id
+                ?: cats.firstOrNull { preferredType == "all" || it.type == preferredType }?.id
                 ?: 0L
         )
     }
@@ -261,8 +280,14 @@ private fun TagEditor(
         },
     )
     if (categoryOpen)
-        TagCategoryPicker(cats, categoryId, false, { categoryOpen = false }) {
-            categoryId = it
+        TagCategoryPicker(
+            cats,
+            categoryId,
+            cats.find { it.id == categoryId }?.type ?: preferredType,
+            false,
+            { categoryOpen = false },
+        ) { category, _ ->
+            categoryId = category
             categoryOpen = false
         }
     if (deleting && original != null)
@@ -296,36 +321,57 @@ private fun TagEditor(
 private fun TagCategoryPicker(
     cats: List<Category>,
     selected: Long,
+    initialType: String,
     allowAll: Boolean,
     dismiss: () -> Unit,
-    choose: (Long) -> Unit,
+    choose: (Long, String) -> Unit,
 ) {
+    var type by remember { mutableStateOf(initialType) }
     GlassAlertDialog(
         onDismissRequest = dismiss,
         title = { Text("所属分类") },
         text = {
-            LazyVerticalGrid(
-                GridCells.Fixed(3),
-                Modifier.heightIn(max = minOf(360.dp, dialogContentMaxHeight())),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                if (allowAll)
-                    item { FilterChip(selected == 0L, { choose(0L) }, label = { Text("所有分类") }) }
-                items(cats, key = { it.id }) { category ->
-                    FilterChip(
-                        selected == category.id,
-                        { choose(category.id) },
-                        label = {
-                            Column {
-                                Text(category.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(
-                                    if (category.type == "EXPENSE") "支出" else "收入",
-                                    style = MaterialTheme.typography.labelSmall,
-                                )
-                            }
-                        },
-                    )
+            Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("all" to "所有", "EXPENSE" to "支出", "INCOME" to "收入").forEach {
+                        (key, label) ->
+                        FilterChip(type == key, { type = key }, label = { Text(label) })
+                    }
+                }
+                LazyVerticalGrid(
+                    GridCells.Fixed(3),
+                    Modifier.heightIn(max = minOf(360.dp, dialogContentMaxHeight())),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (allowAll)
+                        item {
+                            FilterChip(
+                                selected == 0L && initialType == type,
+                                { choose(0L, type) },
+                                label = { Text("所有分类") },
+                            )
+                        }
+                    items(cats.filter { type == "all" || it.type == type }, key = { it.id }) {
+                        category ->
+                        FilterChip(
+                            selected == category.id,
+                            { choose(category.id, type) },
+                            label = {
+                                Column {
+                                    Text(
+                                        category.name,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        if (category.type == "EXPENSE") "支出" else "收入",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                            },
+                        )
+                    }
                 }
             }
         },

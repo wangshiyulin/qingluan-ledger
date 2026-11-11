@@ -124,6 +124,7 @@ fun ExperienceControls(vm: LedgerViewModel, page: String) {
             }
             ConfigSwitch("显示时间", e.showTime) { set("showTime", it) }
             ConfigSwitch("显示备注", e.showNote) { set("showNote", it) }
+            ConfigSwitch("显示标签", e.showTags) { set("showTags", it) }
             ConfigSwitch("隐藏金额", e.hideAmounts) { set("hideAmounts", it) }
         }
         "统计偏好" -> {
@@ -149,5 +150,23 @@ fun ExperienceControls(vm: LedgerViewModel, page: String) {
 }
 
 val secondaryPages =
-    listOf("分类管理", "标签管理", "存储空间管理", "个性化", "本地数据", "操作反馈", "列表显示", "统计偏好", "数据保护", "同步", "回收站", "周期账单", "预算管理", "其他设置") +
-        aboutPages
+    listOf(
+        "分类管理",
+        "标签管理",
+        "存储空间管理",
+        "个性化",
+        "数据管理",
+        "操作反馈",
+        "列表显示",
+        "统计偏好",
+        "数据保护",
+        "同步",
+        "回收站",
+        "周期账单",
+        "预算管理",
+        "分期账单",
+        "标签统计",
+        "分类与标签",
+        "账单管理",
+        "其他设置",
+    ) + aboutPages

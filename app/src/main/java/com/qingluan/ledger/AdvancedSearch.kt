@@ -27,6 +27,8 @@ data class BillSearch(
     val minimum: String = "",
     val maximum: String = "",
     val receipt: String = "any",
+    val tagNames: List<String> = emptyList(),
+    val tagMode: String = "any",
 ) {
     fun validate() {
         require(keyword.length <= 200 && type in listOf("INCOME", "EXPENSE") && categoryId >= 0) {
@@ -35,6 +37,18 @@ data class BillSearch(
         require(from == null || to == null || !from.isAfter(to)) { "开始日期不能晚于结束日期" }
         require(currency == "all" || Currencies.contains(currency)) { "币种无效" }
         require(receipt in listOf("any", "yes", "no")) { "票据条件无效" }
+        require(tagMode in listOf("any", "all")) { "标签匹配方式无效" }
+        require(
+            tagNames.size <= 30 &&
+                tagNames.distinct().size == tagNames.size &&
+                tagNames.all { name ->
+                    name == name.trim() &&
+                        name.length in 1..300 &&
+                        name.none { it.isISOControl() || it in ",，、;；" }
+                }
+        ) {
+            "标签筛选无效"
+        }
         listOf(minimum, maximum).forEach {
             require(it.isEmpty() || it.matches(Regex("[0-9]{1,18}(\\.[0-9]{1,8})?"))) { "金额格式无效" }
         }
@@ -56,7 +70,13 @@ data class BillSearch(
                         BigDecimal.valueOf(entry.amount, Currencies.get(entry.currencyCode).digits)
                     (min == null || amount >= min) && (max == null || amount <= max)
                 }
+            val entryTags = TagCatalog.names(entry.tags).toSet()
+            val tagsMatch =
+                tagNames.isEmpty() ||
+                    if (tagMode == "all") tagNames.all { it in entryTags }
+                    else tagNames.any { it in entryTags }
             priceMatches &&
+                tagsMatch &&
                 (from == null || !entry.date().isBefore(from)) &&
                 (to == null || !entry.date().isAfter(to)) &&
                 (categoryId == 0L || entry.categoryId == categoryId) &&
@@ -83,6 +103,8 @@ data class BillSearch(
             .put("minimum", minimum)
             .put("maximum", maximum)
             .put("receipt", receipt)
+            .put("tagNames", JSONArray(tagNames))
+            .put("tagMode", tagMode)
 
     companion object {
         fun decode(j: JSONObject) =
@@ -96,6 +118,13 @@ data class BillSearch(
                     j.getString("minimum"),
                     j.getString("maximum"),
                     j.getString("receipt"),
+                    if (j.has("tagNames"))
+                        j.getJSONArray("tagNames").let { tags ->
+                            require(tags.length() <= 30) { "标签筛选过多" }
+                            (0 until tags.length()).map { tags.getString(it) }
+                        }
+                    else emptyList(),
+                    j.optString("tagMode", "any"),
                 )
                 .also { it.validate() }
     }
@@ -127,6 +156,28 @@ fun AdvancedSearchDialog(
     var save by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var currencies by remember { mutableStateOf(false) }
+    val catalog = LocalTagCatalog.current
+    val entries by vm.entries.collectAsState()
+    val tagChoices =
+        remember(catalog, entries, cats, state.type, state.categoryId, state.tagNames) {
+            val ids =
+                cats
+                    .filter {
+                        it.type == state.type &&
+                            (state.categoryId == 0L || it.id == state.categoryId)
+                    }
+                    .map { it.id }
+                    .toSet()
+            (state.tagNames +
+                    catalog.filter { it.categoryId in ids }.map { it.name } +
+                    entries
+                        .filter {
+                            it.type == state.type &&
+                                (state.categoryId == 0L || it.categoryId == state.categoryId)
+                        }
+                        .flatMap { TagCatalog.names(it.tags) })
+                .distinct()
+        }
     val context = LocalContext.current
     val prefs by context.preferences.data.collectAsState(initial = emptyPreferences())
     val presets =
@@ -145,7 +196,7 @@ fun AdvancedSearchDialog(
                         state.keyword,
                         { state = state.copy(keyword = it.take(200)) },
                         Modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp),
-                        label = { Text("分类、备注关键词", style = MaterialTheme.typography.bodySmall) },
+                        label = { Text("分类、备注、标签关键词", style = MaterialTheme.typography.bodySmall) },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium,
                     )
@@ -155,7 +206,14 @@ fun AdvancedSearchDialog(
                         listOf("EXPENSE" to "支出", "INCOME" to "收入").forEach { (key, label) ->
                             FilterChip(
                                 state.type == key,
-                                { state = state.copy(type = key, categoryId = 0) },
+                                {
+                                    state =
+                                        state.copy(
+                                            type = key,
+                                            categoryId = 0,
+                                            tagNames = emptyList(),
+                                        )
+                                },
                                 label = { Text(label, style = MaterialTheme.typography.labelLarge) },
                             )
                         }
@@ -250,7 +308,8 @@ fun AdvancedSearchDialog(
                                 {
                                     state =
                                         state.copy(
-                                            categoryId = if (state.categoryId == c.id) 0 else c.id
+                                            categoryId = if (state.categoryId == c.id) 0 else c.id,
+                                            tagNames = emptyList(),
                                         )
                                 },
                                 label = {
@@ -265,6 +324,55 @@ fun AdvancedSearchDialog(
                             )
                         }
                     }
+                }
+                SearchSection {
+                    Text("标签", style = MaterialTheme.typography.labelMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("any" to "任一标签", "all" to "全部标签").forEach { (mode, label) ->
+                            FilterChip(
+                                state.tagMode == mode,
+                                { state = state.copy(tagMode = mode) },
+                                label = { Text(label) },
+                            )
+                        }
+                    }
+                    if (tagChoices.isEmpty())
+                        Text("当前分类暂无标签", style = MaterialTheme.typography.bodySmall)
+                    else
+                        LazyVerticalGrid(
+                            GridCells.Adaptive(84.dp),
+                            Modifier.heightIn(max = 160.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            items(tagChoices, key = { it }) { tag ->
+                                val selected = tag in state.tagNames
+                                FilterChip(
+                                    selected,
+                                    {
+                                        if (selected || state.tagNames.size < 30) {
+                                            state =
+                                                state.copy(
+                                                    tagNames =
+                                                        if (selected) state.tagNames - tag
+                                                        else state.tagNames + tag
+                                                )
+                                        } else error = "最多选择30个标签"
+                                    },
+                                    label = {
+                                        Text(
+                                            tag,
+                                            maxLines = 2,
+                                            overflow =
+                                                androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    if (state.tagNames.isNotEmpty())
+                        TextButton(onClick = { state = state.copy(tagNames = emptyList()) }) {
+                            Text("清除标签筛选")
+                        }
                 }
                 SearchSection {
                     TextButton(
