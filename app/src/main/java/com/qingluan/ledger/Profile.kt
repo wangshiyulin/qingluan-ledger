@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -143,27 +144,37 @@ fun ProfileHeader(vm: LedgerViewModel, rows: List<Entry>) {
         Modifier.fillMaxWidth().padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier.size(76.dp)
-                .clip(CircleShape)
-                .elasticClickable { editing = true }
-                .testTag("profile-avatar")
-        ) {
-            val avatarImage = image
-            if (avatarImage != null)
-                Image(
-                    avatarImage.asImageBitmap(),
-                    "头像",
-                    Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
+        Box(Modifier.size(76.dp).elasticClickable { editing = true }.testTag("profile-avatar")) {
+            Box(Modifier.fillMaxSize().clip(CircleShape)) {
+                val avatarImage = image
+                if (avatarImage != null)
+                    Image(
+                        avatarImage.asImageBitmap(),
+                        "头像",
+                        Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                else
+                    Image(
+                        painterResource(R.drawable.brand_logo),
+                        "头像",
+                        Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+            }
+            Surface(
+                Modifier.align(Alignment.BottomEnd).size(24.dp).testTag("profile-edit-badge"),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.background),
+            ) {
+                Icon(
+                    androidx.compose.material.icons.Icons.Outlined.Edit,
+                    null,
+                    Modifier.padding(4.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-            else
-                Image(
-                    painterResource(R.drawable.brand_logo),
-                    "头像",
-                    Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
+            }
         }
         TextButton(onClick = { editing = true }) { Text(profile.nickname.ifBlank { "青鸾记账" }) }
         Row(

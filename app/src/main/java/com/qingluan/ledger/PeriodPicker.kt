@@ -28,7 +28,7 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                     Text(if (years) "年份" else "${year}年")
                 }
                 if (!years)
-                    IconButton(enabled = year < 2100, onClick = { year++ }) {
+                    IconButton(enabled = year < 2200, onClick = { year++ }) {
                         Icon(Icons.Outlined.ChevronRight, "下一年")
                     }
             }
@@ -40,12 +40,14 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                     state =
                         rememberLazyGridState(
                             initialFirstVisibleItemIndex =
-                                ((year.coerceIn(1900, 2100) - 1900) / 3 * 3).coerceAtLeast(0)
+                                ((year.coerceIn(1900, 2200) - 1900) / 3 * 3).coerceAtLeast(0)
                         ),
-                    modifier = Modifier.heightIn(max = minOf(320.dp, dialogContentMaxHeight())).testTag("year-grid"),
+                    modifier =
+                        Modifier.heightIn(max = minOf(320.dp, dialogContentMaxHeight()))
+                            .testTag("year-grid"),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    items((1900..2100).toList()) { y ->
+                    items((1900..2200).toList()) { y ->
                         FilterChip(
                             year == y,
                             {
@@ -61,7 +63,9 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
             else
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
-                    modifier = Modifier.heightIn(max = minOf(280.dp, dialogContentMaxHeight())).testTag("month-grid"),
+                    modifier =
+                        Modifier.heightIn(max = minOf(280.dp, dialogContentMaxHeight()))
+                            .testTag("month-grid"),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items((1..12).toList()) { m ->

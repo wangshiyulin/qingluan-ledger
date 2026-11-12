@@ -67,6 +67,7 @@ class Release110NavigationTest {
         compose.onNodeWithContentDescription("返回").performClick()
         click("数据管理")
         click("同步")
+        click("WebDAV")
         compose.onNodeWithText("WebDAV 连接").assertExists()
     }
 }

@@ -26,20 +26,15 @@ val paletteNames =
         "oat" to "燕麦",
         "sakura" to "樱花",
     )
-val fontSizes =
-    linkedMapOf(
-        "system" to "跟随系统",
-        "small" to "小",
-        "large" to "大",
-        "extra" to "特大",
-        "custom" to "自定义",
-    )
+val fontSizes = linkedMapOf("system" to "跟随系统", "custom" to "自定义")
 
 data class AppAppearance(
     val palette: String = "system",
     val pureBlack: Boolean = false,
     val fontSize: String = "system",
     val customFontPercent: Int = 100,
+    val fontFamily: String = "system",
+    val customFontId: String = "",
 ) {
     init {
         require(customFontPercent in 75..160)
@@ -65,14 +60,28 @@ fun appearanceFromPreferences(
         } ?: "system"
     val font =
         prefs[androidx.datastore.preferences.core.stringPreferencesKey("fontSize")].takeIf {
-            it in fontSizes
+            it in fontSizes || it in legacyFontPercents
         } ?: "system"
+    val (mode, percent) =
+        normalizeFontSize(
+            font,
+            prefs[androidx.datastore.preferences.core.intPreferencesKey("customFontPercent")] ?: 100,
+        )
+    val family =
+        prefs[androidx.datastore.preferences.core.stringPreferencesKey("fontFamily")]?.takeIf {
+            it in fontFamilies
+        } ?: "system"
+    val fontId =
+        prefs[androidx.datastore.preferences.core.stringPreferencesKey("customFontId")]?.takeIf {
+            it.matches(Regex("[a-f0-9]{32}"))
+        } ?: ""
     return AppAppearance(
         palette,
         prefs[androidx.datastore.preferences.core.booleanPreferencesKey("pureBlack")] ?: false,
-        font,
-        (prefs[androidx.datastore.preferences.core.intPreferencesKey("customFontPercent")] ?: 100)
-            .coerceIn(75, 160),
+        mode,
+        percent,
+        family,
+        fontId,
     )
 }
 
@@ -126,14 +135,6 @@ private fun readableAccent(accent: Color, background: Color): Color {
     return target
 }
 
-fun readableDarkContainers(scheme: ColorScheme) =
-    scheme.copy(
-        primaryContainer = lerp(scheme.surfaceContainerHigh, scheme.primary, .30f),
-        onPrimaryContainer = scheme.primary,
-        secondaryContainer = lerp(scheme.surfaceContainerHigh, scheme.secondary, .26f),
-        onSecondaryContainer = scheme.secondary,
-    )
-
 fun richerLightColors(scheme: ColorScheme): ColorScheme {
     val primary = readableAccent(vividAccent(scheme.primary, false), scheme.surface)
     val secondary = readableAccent(vividAccent(scheme.secondary, false), scheme.surface)
@@ -157,17 +158,24 @@ fun richerLightColors(scheme: ColorScheme): ColorScheme {
 fun richerDarkColors(scheme: ColorScheme): ColorScheme {
     val primary = readableAccent(vividAccent(scheme.primary, true), scheme.surface)
     val secondary = readableAccent(vividAccent(scheme.secondary, true), scheme.surface)
+    val liftedLow = lerp(scheme.surfaceContainerLow, Color.White, .025f)
+    val liftedHigh = lerp(scheme.surfaceContainerHigh, Color.White, .035f)
+    val primaryContainer = lerp(liftedHigh, primary, .30f)
+    val secondaryContainer = lerp(liftedHigh, secondary, .28f)
     return scheme.copy(
         primary = primary,
         secondary = secondary,
-        onPrimaryContainer =
-            readableAccent(primary, lerp(scheme.surfaceContainerHigh, primary, .24f)),
-        onSecondaryContainer =
-            readableAccent(secondary, lerp(scheme.surfaceContainerHigh, secondary, .22f)),
-        onSurface = lerp(scheme.onSurface, Color.White, .08f),
-        onSurfaceVariant = lerp(scheme.onSurfaceVariant, primary, .12f),
-        primaryContainer = lerp(scheme.surfaceContainerHigh, primary, .24f),
-        secondaryContainer = lerp(scheme.surfaceContainerHigh, secondary, .22f),
+        primaryContainer = primaryContainer,
+        secondaryContainer = secondaryContainer,
+        onPrimaryContainer = readableAccent(primary, primaryContainer),
+        onSecondaryContainer = readableAccent(secondary, secondaryContainer),
+        onSurface = lerp(scheme.onSurface, Color.White, .12f),
+        onSurfaceVariant =
+            readableAccent(lerp(scheme.onSurfaceVariant, Color.White, .08f), liftedLow),
+        surfaceContainerLow = liftedLow,
+        surfaceContainer = lerp(scheme.surfaceContainer, Color.White, .025f),
+        surfaceContainerHigh = liftedHigh,
+        surfaceContainerHighest = lerp(scheme.surfaceContainerHighest, Color.White, .03f),
     )
 }
 
@@ -203,10 +211,9 @@ fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance)
                     background = lerp(seed, Color.White, .97f),
                     surface = lerp(seed, Color.White, .97f),
                 )
-        val adjusted = if (dark) readableDarkContainers(scheme) else scheme
         val themed =
             if (dark && appearance.pureBlack)
-                adjusted.copy(
+                scheme.copy(
                     background = Color.Black,
                     surface = Color.Black,
                     surfaceContainerLowest = Color.Black,
@@ -220,7 +227,7 @@ fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance)
                     appearance.palette in setOf("mint", "sky", "lilac", "peach", "oat", "sakura")
             ) {
                 val pastel = palettePreviewColor(appearance.palette)
-                adjusted.copy(
+                scheme.copy(
                     background = lerp(pastel, Color.White, .84f),
                     surface = lerp(pastel, Color.White, .84f),
                     primaryContainer = lerp(pastel, Color.White, .2f),
@@ -231,16 +238,19 @@ fun appearanceColors(context: Context, dark: Boolean, appearance: AppAppearance)
                     surfaceContainerHigh = lerp(pastel, Color.White, .52f),
                     surfaceContainerHighest = lerp(pastel, Color.White, .42f),
                 )
-            } else adjusted
+            } else scheme
         if (dark) richerDarkColors(themed) else richerLightColors(themed)
     }
 }
 
-fun appearanceTypography(appearance: AppAppearance): Typography {
+fun appearanceTypography(
+    appearance: AppAppearance,
+    family: FontFamily = systemFontFamily(appearance.fontFamily),
+): Typography {
     val base = Typography()
     fun font(style: TextStyle) =
         style.copy(
-            fontFamily = FontFamily.Default,
+            fontFamily = family,
             fontSize = style.fontSize * appearance.scale,
             lineHeight = style.lineHeight * appearance.scale,
         )
@@ -265,4 +275,4 @@ fun appearanceTypography(appearance: AppAppearance): Typography {
 
 fun fontSizeLabel(style: AppAppearance) =
     if (style.fontSize == "custom") "自定义 ${style.customFontPercent}%"
-    else fontSizes.getValue(style.fontSize)
+    else fontSizes[style.fontSize] ?: "跟随系统"

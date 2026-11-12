@@ -71,6 +71,7 @@ object CompleteBackup {
                 .put("pureBlack", a.pureBlack)
                 .put("fontSize", a.fontSize)
                 .put("customFontPercent", a.customFontPercent)
+                .put("fontFamily", a.fontFamily.takeUnless { it == "custom" } ?: "system")
                 .put("motion", personal.effects.motion)
                 .put("haptics", personal.effects.haptics)
                 .put("experience", personal.experience.json())
@@ -141,10 +142,13 @@ object CompleteBackup {
             nickname.length <= 24 &&
                 theme in listOf("system", "light", "dark") &&
                 palette in paletteNames &&
-                fontSize in fontSizes
+                (fontSize in fontSizes || fontSize in legacyFontPercents)
         ) {
             "备份设置无效"
         }
+        val family = p.optString("fontFamily", "system")
+        require(family in fontFamilies) { "字形设置无效" }
+        val normalizedFont = normalizeFontSize(fontSize, customFontPercent)
         require(p.has("avatar")) { "头像字段缺失" }
         val avatar =
             if (p.isNull("avatar")) null
@@ -221,7 +225,13 @@ object CompleteBackup {
             PersonalBackup(
                 nickname,
                 theme,
-                AppAppearance(palette, p.getBoolean("pureBlack"), fontSize, customFontPercent),
+                AppAppearance(
+                    palette,
+                    p.getBoolean("pureBlack"),
+                    normalizedFont.first,
+                    normalizedFont.second,
+                    family.takeUnless { it == "custom" } ?: "system",
+                ),
                 UiEffects(p.getBoolean("motion"), p.getBoolean("haptics")),
                 avatar,
                 Experience.decode(p.optJSONObject("experience") ?: JSONObject()),
@@ -396,6 +406,7 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                     prefs[booleanPreferencesKey("pureBlack")] = p.appearance.pureBlack
                     prefs[stringPreferencesKey("fontSize")] = p.appearance.fontSize
                     prefs[intPreferencesKey("customFontPercent")] = p.appearance.customFontPercent
+                    prefs[stringPreferencesKey("fontFamily")] = p.appearance.fontFamily
                     prefs.remove(stringPreferencesKey("fontFamily"))
                     prefs[booleanPreferencesKey("motion")] = p.effects.motion
                     prefs[booleanPreferencesKey("haptics")] = p.effects.haptics

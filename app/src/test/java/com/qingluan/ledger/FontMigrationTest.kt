@@ -25,13 +25,13 @@ class FontMigrationTest {
         assertEquals(1.25f, appearance.scale)
         val raw =
             CompleteBackup.encode(categories, emptyList(), PersonalBackup(appearance = appearance))
-        assertEquals(7, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(10, JSONObject(raw).getInt("formatVersion"))
         assertEquals(appearance, CompleteBackup.decode(raw).personal!!.appearance)
         val old = JSONObject(raw).put("formatVersion", 5)
         old.getJSONObject("personal").remove("customFontPercent")
         old.getJSONObject("personal").put("fontSize", "large")
         assertEquals(
-            100,
+            115,
             CompleteBackup.decode(old.toString()).personal!!.appearance.customFontPercent,
         )
         val bad = JSONObject(raw)

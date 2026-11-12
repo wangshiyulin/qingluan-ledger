@@ -217,7 +217,7 @@ class FeatureUiTest {
     @Config(sdk = [34], qualifiers = "w960dp-h600dp-land")
     fun landscapeLargeTextEntryAndDateRemainUsable() {
         val vm = ready()
-        vm.customFontPercent(160)
+        vm.applyFont("custom", 160, "system", "") {}
         compose.waitUntil(5000) {
             compose.onAllNodesWithText("青鸾记账").fetchSemanticsNodes()
             vm.appearance.value.customFontPercent == 160

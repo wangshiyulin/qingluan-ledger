@@ -29,7 +29,7 @@ class AppearancePolishTest {
                 next.secondaryContainer.luminance() < base.secondaryContainer.luminance(),
             )
             assertTrue(key, (next.secondaryContainer.luminance() + .05f) / .05f >= 4.5f)
-            val dark = richerDarkColors(readableDarkContainers(darkColorScheme()))
+            val dark = richerDarkColors(darkColorScheme())
             val contrast =
                 (dark.onSecondaryContainer.luminance() + .05f) /
                     (dark.secondaryContainer.luminance() + .05f)
@@ -42,7 +42,7 @@ class AppearancePolishTest {
         for (key in paletteNames.keys) {
             val primary = androidx.compose.ui.graphics.lerp(paletteColor(key), Color.White, .5f)
             val base = darkColorScheme(primary = primary, secondary = primary)
-            val adjusted = readableDarkContainers(base)
+            val adjusted = richerDarkColors(base)
             assertTrue(
                 key,
                 adjusted.secondaryContainer.luminance() > base.surfaceContainerLow.luminance(),

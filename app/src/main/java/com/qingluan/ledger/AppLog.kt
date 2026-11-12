@@ -29,7 +29,7 @@ object AppLog {
                             .toString(Charsets.UTF_8)
                     }
                 val j = JSONArray(raw)
-                (maxOf(0,j.length()-100) until j.length()).map { index ->
+                (maxOf(0, j.length() - 100) until j.length()).map { index ->
                     val e = j.getJSONObject(index)
                     LogEvent(e.getLong("time"), e.getString("action"), e.getString("result"))
                 }
@@ -47,7 +47,9 @@ object AppLog {
             synchronized(lock) {
                 runCatching {
                     val safeAction =
-                        action.takeIf { it in setOf("应用启动", "本地操作", "账单保存", "导入", "导出", "WebDAV") } ?: "本地操作"
+                        action.takeIf {
+                            it in setOf("应用启动", "本地操作", "账单保存", "导入", "导出", "WebDAV", "S3", "应用更新")
+                        } ?: "本地操作"
                     val result =
                         if (error == null) "完成"
                         else

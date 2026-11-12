@@ -24,3 +24,13 @@ WebDAV requests use OkHttp 4.12.0 and its Okio dependency, distributed under the
 - https://github.com/square/okio
 
 Copyright Square, Inc. and the respective contributors. Apache-2.0 license text is included in `app/src/main/assets/licenses/Apache-2.0.txt`.
+
+## Android APK Signature Scheme verifier (apksig)
+
+APK update integrity and signer verification use `com.android.tools.build:apksig:8.7.3`, distributed under the Apache License, Version 2.0.
+
+Copyright The Android Open Source Project and respective contributors.
+
+- https://android.googlesource.com/platform/tools/apksig/
+
+The bundled Apache-2.0 license text applies. Signature trust is checked against the currently installed application's signing certificate, not a certificate retrieved from the update server.

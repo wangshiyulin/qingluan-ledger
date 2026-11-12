@@ -41,6 +41,7 @@ fun Insights(
     rows: List<Entry>,
     cats: List<Category>,
     persist: (String, Any) -> Unit = { _, _ -> },
+    openAnnual: (Int) -> Unit = {},
     add: (LocalDate) -> Unit,
 ) {
     val prefs = LocalExperience.current
@@ -60,7 +61,6 @@ fun Insights(
     var detail by remember { mutableStateOf<Pair<Category, String>?>(null) }
     var day by remember { mutableStateOf<LocalDate?>(null) }
     var calendar by remember { mutableStateOf(false) }
-    var report by remember { mutableStateOf(false) }
     var pie by remember { mutableStateOf(prefs.statPie) }
     var typeMenu by remember { mutableStateOf(false) }
     var more by remember { mutableStateOf(false) }
@@ -168,7 +168,8 @@ fun Insights(
                             DropdownMenuItem(
                                 text = { Text(label) },
                                 onClick = {
-                                    if (label == "日历") calendar = !calendar else report = !report
+                                    if (label == "日历") calendar = !calendar
+                                    else openAnnual(date.year)
                                     more = false
                                 },
                             )
@@ -380,34 +381,6 @@ fun Insights(
                         "insight-calendar-$currency",
                     ) {
                         CalendarMonth(date, currencyRows, type) { day = it }
-                    }
-                }
-            if (report)
-                currencyItem(currency) {
-                    val yearly = currencyRows.filter { DateSpan.year(date).contains(it) }
-                    val months = yearly.groupBy { it.date().monthValue }
-                    InsightSection(
-                        "年度报告",
-                        "${date.year} 年 · $currency",
-                        "insight-report-$currency",
-                    ) {
-                        Summary(yearly)
-                        (1..12).forEach { m ->
-                            val mt = totals(months[m].orEmpty())
-                            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                                Text("${m}月", Modifier.weight(1f))
-                                Text(
-                                    "入 ${displayMoney(mt.income,currency)} · 出 ${displayMoney(mt.expense,currency)}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                            }
-                        }
-                        Text("消费排行", style = MaterialTheme.typography.titleMedium)
-                        yearly
-                            .filter { it.type == "EXPENSE" }
-                            .sortedByDescending { it.amount }
-                            .take(10)
-                            .forEach { e -> EntryRow(e, cats) { day = e.date() } }
                     }
                 }
         }
@@ -743,45 +716,54 @@ fun CalendarMonth(
                     if (type == "BALANCE") totals(list).balance else list.sumOf { it.amount }
                 }
         }
-    Column {
-        Row {
-            listOf("一", "二", "三", "四", "五", "六", "日").forEach {
-                Text(
-                    it,
-                    Modifier.weight(1f).padding(vertical = 8.dp),
-                    style = MaterialTheme.typography.labelMedium,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                )
-            }
-        }
-        val offset = start.dayOfWeek.value - 1
-        (0 until (offset + date.lengthOfMonth() + 6) / 7).forEach { week ->
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val bodyLine = MaterialTheme.typography.bodyMedium.lineHeight
+        val amountLine = MaterialTheme.typography.labelSmall.lineHeight
+        val gridWidth = maxWidth.coerceAtMost(364.dp)
+        val contentHeight = with(density) { bodyLine.toDp() + amountLine.toDp() } + 4.dp
+        val cellHeight = maxOf(gridWidth / 7, contentHeight)
+        Column(Modifier.width(gridWidth).align(Alignment.TopCenter)) {
             Row {
-                (0..6).forEach { col ->
-                    val n = week * 7 + col - offset + 1
-                    Column(
-                        Modifier.weight(1f)
-                            .heightIn(min = 52.dp)
-                            .then(
-                                if (n in 1..date.lengthOfMonth())
-                                    Modifier.clickable { select(start.withDayOfMonth(n)) }
-                                else Modifier
-                            )
-                            .padding(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        if (n in 1..date.lengthOfMonth()) {
-                            Text(n.toString(), style = MaterialTheme.typography.bodyMedium)
-                            val amount = dailyAmounts[start.withDayOfMonth(n)] ?: 0L
-                            if (amount != 0L)
-                                Text(
-                                    displayMoney(amount, currency),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color =
-                                        if (type == "EXPENSE" || amount < 0) spendingColor()
-                                        else MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
+                listOf("一", "二", "三", "四", "五", "六", "日").forEach {
+                    Text(
+                        it,
+                        Modifier.weight(1f).padding(vertical = 8.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                }
+            }
+            val offset = start.dayOfWeek.value - 1
+            (0 until (offset + date.lengthOfMonth() + 6) / 7).forEach { week ->
+                Row {
+                    (0..6).forEach { col ->
+                        val n = week * 7 + col - offset + 1
+                        Column(
+                            Modifier.weight(1f)
+                                .heightIn(min = cellHeight)
+                                .testTag("calendar-day-$n")
+                                .then(
+                                    if (n in 1..date.lengthOfMonth())
+                                        Modifier.clickable { select(start.withDayOfMonth(n)) }
+                                    else Modifier
                                 )
+                                .padding(horizontal = 2.dp, vertical = 2.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            if (n in 1..date.lengthOfMonth()) {
+                                Text(n.toString(), style = MaterialTheme.typography.bodyMedium)
+                                val amount = dailyAmounts[start.withDayOfMonth(n)] ?: 0L
+                                if (amount != 0L)
+                                    Text(
+                                        displayMoney(amount, currency),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color =
+                                            if (type == "EXPENSE" || amount < 0) spendingColor()
+                                            else MaterialTheme.colorScheme.primary,
+                                        maxLines = 1,
+                                    )
+                            }
                         }
                     }
                 }

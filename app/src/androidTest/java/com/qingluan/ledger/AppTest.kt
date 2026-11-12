@@ -518,13 +518,9 @@ class AppTest {
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
         compose.onNodeWithContentDescription("更多").performClick()
         compose.onNodeWithText("年度报告").performClick()
-        compose
-            .onNode(hasScrollToIndexAction())
-            .performScrollToNode(hasTestTag("insight-report-CNY"))
-        compose
-            .onNode(hasText("年度报告") and hasAnyAncestor(hasTestTag("insight-report-CNY")))
-            .assertExists()
-        compose.onNodeWithText("入 200.00 · 出 90.00").assertExists()
+        compose.onNodeWithTag("annual-report-page").assertExists()
+        compose.waitUntil(5000) { compose.onAllNodesWithText("年度结余").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNode(hasScrollToIndexAction()).performScrollToIndex(0)
         compose.onNode(hasText("支出") and hasClickAction()).performClick()
         compose.onNode(hasText("收入") and hasClickAction()).performClick()
@@ -547,14 +543,15 @@ class AppTest {
         compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
         compose.onNodeWithText("字体").performClick()
-        compose.onNode(hasText("大") and isSelectable()).performClick()
+        compose.onNode(hasText("自定义") and isSelectable()).performClick()
+        compose.onNodeWithTag("font-custom-percent").performScrollTo().performTextReplacement("115")
+        compose.onNodeWithText("字形").assertExists()
+        compose.onNodeWithText("完成").performClick()
         val vm = androidx.lifecycle.ViewModelProvider(compose.activity)[LedgerViewModel::class.java]
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("大").fetchSemanticsNodes()
-            vm.appearance.value.fontSize == "large"
+            compose.onAllNodesWithText("字体").fetchSemanticsNodes()
+            vm.appearance.value.fontSize == "custom" && vm.appearance.value.customFontPercent == 115
         }
-        compose.onNodeWithText("字形").assertDoesNotExist()
-        compose.onNodeWithText("完成").performClick()
         compose.onNodeWithText("主题").performClick()
         compose.onNode(hasText("海蓝") and isSelectable()).performClick()
         compose.onNodeWithTag("pure-black").performScrollTo().performClick()
@@ -916,7 +913,7 @@ class AppTest {
         compose.onNodeWithText("字体").performClick()
         compose.onNode(hasText("自定义") and isSelectable()).performScrollTo().performClick()
         compose.onNodeWithTag("font-custom-percent").performScrollTo().performTextReplacement("125")
-        compose.onNodeWithText("应用").performClick()
+        compose.onNodeWithText("完成").performClick()
         compose.waitUntil(5000) {
             compose.onAllNodesWithText("字体").fetchSemanticsNodes()
             vm.appearance.value.fontSize == "custom" && vm.appearance.value.customFontPercent == 125

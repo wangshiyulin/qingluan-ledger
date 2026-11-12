@@ -173,9 +173,10 @@ fun LedgerApp(
     }
     val appearance by vm.appearance.collectAsStateWithLifecycle()
     val scheme = appearanceColors(context, dark, appearance)
+    val family = rememberAppFont(appearance)
     val typography =
-        remember(appearance.fontSize, appearance.customFontPercent) {
-            appearanceTypography(appearance)
+        remember(appearance.fontSize, appearance.customFontPercent, family) {
+            appearanceTypography(appearance, family)
         }
     MaterialTheme(colorScheme = scheme, typography = typography) {
         val rows by vm.entries.collectAsStateWithLifecycle()
@@ -206,7 +207,8 @@ fun LedgerApp(
         }
         val back by nav.currentBackStackEntryAsState()
         val route = back?.destination?.route ?: "明细"
-        val secondaryRoute = route in secondaryPages || route in legacySettingsRoutes
+        val secondaryRoute =
+            route in secondaryPages || route in legacySettingsRoutes || route == ANNUAL_REPORT_ROUTE
         var editId by rememberSaveable { mutableLongStateOf(0L) }
         val edit =
             remember(rows, editId) { if (editId == 0L) null else rows.find { it.id == editId } }
@@ -380,7 +382,12 @@ fun LedgerApp(
                                 }
                                 composable("洞察") {
                                     RouteSurface(route == "洞察") {
-                                        Insights(rows, cats, persist = vm::experience) { d ->
+                                        Insights(
+                                            rows,
+                                            cats,
+                                            persist = vm::experience,
+                                            openAnnual = { year -> openPage("年度报告/$year") },
+                                        ) { d ->
                                             initialDate = d
                                             entryInitialType = "EXPENSE"
                                             editId = 0L
@@ -393,6 +400,28 @@ fun LedgerApp(
                                 composable("我的") {
                                     RouteSurface(route == "我的") {
                                         SettingsHome(vm, rows, ::openPage)
+                                    }
+                                }
+                                composable(
+                                    ANNUAL_REPORT_ROUTE,
+                                    arguments =
+                                        listOf(
+                                            androidx.navigation.navArgument("year") {
+                                                type = androidx.navigation.NavType.IntType
+                                            }
+                                        ),
+                                ) { entry ->
+                                    RouteSurface(route == ANNUAL_REPORT_ROUTE) {
+                                        AnnualReportPage(
+                                            rows,
+                                            cats,
+                                            entry.arguments?.getInt("year") ?: LocalDate.now().year,
+                                        ) {
+                                            if (
+                                                nav.currentDestination?.route == ANNUAL_REPORT_ROUTE
+                                            )
+                                                nav.popBackStack()
+                                        }
                                     }
                                 }
                                 secondaryPages.forEach { page ->

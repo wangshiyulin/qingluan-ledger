@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -92,49 +95,51 @@ fun TrashPage(vm: LedgerViewModel, back: () -> Unit) {
                 }
             items(records, key = { it.id }) { record ->
                 val entry = remember(record) { ArchiveJson.entry(JSONObject(record.entryJson)) }
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                ) {
-                    Column(Modifier.padding(8.dp)) {
-                        CompositionLocalProvider(LocalCategoryIndex provides emptyMap()) {
-                            EntryRow(
-                                entry,
-                                listOf(
-                                    Category(
-                                        id = entry.categoryId,
-                                        name = record.categoryName,
-                                        type = entry.type,
-                                        iconKey = record.iconKey,
-                                    )
-                                ),
-                                null,
+                val archivedCategory =
+                    remember(record, entry.categoryId) {
+                        listOf(
+                            Category(
+                                id = entry.categoryId,
+                                name = record.categoryName,
+                                type = entry.type,
+                                iconKey = record.iconKey,
                             )
-                        }
-                        Text(
-                            "删除于 ${Instant.ofEpochMilli(record.deletedAt).atZone(ZoneId.systemDefault()).toLocalDate()}",
-                            Modifier.padding(horizontal = 10.dp),
-                            style = MaterialTheme.typography.bodySmall,
                         )
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(
-                                onClick = {
-                                    feedback()
-                                    vm.restoreArchived(setOf(record.id))
-                                }
-                            ) {
-                                Text("恢复")
-                            }
-                            TextButton(
-                                onClick = {
-                                    feedback()
-                                    deleting = setOf(record.id)
-                                }
-                            ) {
-                                Text("彻底删除")
-                            }
-                        }
                     }
+                CompositionLocalProvider(LocalCategoryIndex provides emptyMap()) {
+                    EntryRow(
+                        entry,
+                        archivedCategory,
+                        onClick = null,
+                        onLongClick = null,
+                        trailing = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                IconButton(
+                                    onClick = {
+                                        feedback()
+                                        vm.restoreArchived(setOf(record.id))
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    Icon(Icons.Outlined.Restore, "恢复账单", Modifier.size(20.dp))
+                                }
+                                IconButton(
+                                    onClick = {
+                                        feedback()
+                                        deleting = setOf(record.id)
+                                    },
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.DeleteOutline,
+                                        "彻底删除账单",
+                                        Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                        },
+                    )
                 }
             }
         }

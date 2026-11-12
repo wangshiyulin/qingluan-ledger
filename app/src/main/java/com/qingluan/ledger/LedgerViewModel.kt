@@ -263,14 +263,21 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         getApplication<Application>().preferences.edit { it[stringPreferencesKey(key)] = value }
     }
 
-    fun customFontPercent(value: Int, done: () -> Unit = {}) = action {
-        require(value in 75..160) { "字号比例需在75%至160%之间" }
-        getApplication<Application>().preferences.edit {
-            it[stringPreferencesKey("fontSize")] = "custom"
-            it[intPreferencesKey("customFontPercent")] = value
+    fun applyFont(mode: String, percent: Int, family: String, fontId: String, done: () -> Unit) =
+        action {
+            require(mode in fontSizes && percent in 75..160 && family in fontFamilies) { "字体设置无效" }
+            val app = getApplication<Application>()
+            if (family == "custom")
+                require(FontFiles.file(app, fontId)?.isFile == true) { "请先导入字体文件" }
+            app.preferences.edit {
+                it[stringPreferencesKey("fontSize")] = mode
+                it[intPreferencesKey("customFontPercent")] = percent
+                it[stringPreferencesKey("fontFamily")] = family
+                it[stringPreferencesKey("customFontId")] = fontId
+            }
+            done()
+            FontFiles.prune(app, fontId)
         }
-        done()
-    }
 
     fun pureBlack(value: Boolean) = action {
         getApplication<Application>().preferences.edit {
@@ -348,7 +355,8 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 if (record) AppLog.record(getApplication(), label, e)
                 message.value =
-                    if (label == "WebDAV") "WebDAV 操作失败，请查看同步页提示" else e.message ?: "操作失败"
+                    if (label in setOf("WebDAV", "S3")) "$label 操作失败，请查看同步页提示"
+                    else e.message ?: "操作失败"
             }
         }
     }

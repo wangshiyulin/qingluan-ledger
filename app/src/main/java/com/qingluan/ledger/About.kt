@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,6 +52,11 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
     var events by remember { mutableStateOf<List<LogEvent>>(emptyList()) }
     var refresh by remember { mutableIntStateOf(0) }
     var clear by remember { mutableStateOf(false) }
+    var updateOpen by rememberSaveable { mutableStateOf(false) }
+    val updater: AppUpdateViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    LaunchedEffect(updateOpen) {
+        if (updateOpen && updater.state.value.phase == "idle") updater.check()
+    }
     var license by remember { mutableStateOf("") }
     LaunchedEffect(page, refresh) {
         if (page == "运行日志") events = AppLog.read(context).reversed()
@@ -85,6 +91,11 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
         vm.message.value =
             if (url.isBlank()) pending else if (openAboutLink(context, url)) null else "无法打开链接"
     }
+    if (updateOpen)
+        AppUpdateDialog(updater) {
+            updater.cancel()
+            updateOpen = false
+        }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -127,7 +138,7 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         listOf(
-                                Triple("官方网站", Icons.Outlined.Language, AboutLinks.website),
+                                Triple("官网", Icons.Outlined.Language, AboutLinks.website),
                                 Triple("GitHub", Icons.Outlined.Code, AboutLinks.github),
                                 Triple("博客", Icons.AutoMirrored.Outlined.Article, AboutLinks.blog),
                             )
@@ -161,12 +172,9 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                             }
                     }
                     Spacer(Modifier.height(6.dp))
-                    AboutRow(
-                        "检测更新",
-                        Icons.Outlined.SystemUpdate,
-                        "更新地址待配置".takeIf { AboutLinks.updates.isBlank() },
-                    ) {
-                        link(AboutLinks.updates, "更新地址待配置")
+                    AboutRow("检测更新", Icons.Outlined.SystemUpdate, null) {
+                        updateOpen = true
+                        updater.check()
                     }
                     AboutRow(
                         "问题反馈",
@@ -180,11 +188,24 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                     AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                 }
                 "更新日志" -> {
-                    Changelog("1.1.0", "标签收支筛选、显示开关与统计；独立月预算；新增分期账单、多张票据和XLSX导入导出；整理我的页面分级。")
+                    Changelog(
+                        "1.1.1",
+                        "字体精简为跟随系统和自定义，新增字形选择与本地字体导入；年度报告独立页面与月度对比、分类排行；缩小日历行距；提亮深色主题，头像增加编辑标记。",
+                    )
+                    Changelog(
+                        "1.1.0",
+                        "新增 S3 兼容加密备份与恢复；回收站紧凑卡片；液态透明底栏；标签筛选统计、独立月预算、分期账单、多张票据和XLSX导入导出；整理功能分级。",
+                    )
                     Changelog("1.0.9", "新增存储空间管理和分类标签管理，选完分类可多选标签；完整备份包含标签模板；优化汇总、日期计算、时钟刷新和小票据处理。")
-                    Changelog("1.0.8", "增强主题图标和文字色彩；新增月度总预算及分类预算、主币种与临时金额隐藏；列表显示移入个性化；紧凑搜索与底栏，更新我的图标。")
+                    Changelog(
+                        "1.0.8",
+                        "增强主题图标和文字色彩；新增月度总预算及分类预算、主币种与临时金额隐藏；列表显示移入个性化；紧凑搜索与底栏，更新我的图标。",
+                    )
                     Changelog("1.0.7", "桌面快捷记账支持开关并保存状态；调整我的页面顺序；高级搜索按选项分组显示浅色卡片。")
-                    Changelog("1.0.6", "高级搜索、回收站、周期账单、WebDAV历史与导入预览；保留桌面快捷记账，移除组件；新增币种地区旗帜，调整周期空状态；缓存统计结果与配色，优化趋势标注和列表复用。")
+                    Changelog(
+                        "1.0.6",
+                        "高级搜索、回收站、周期账单、WebDAV历史与导入预览；保留桌面快捷记账，移除组件；新增币种地区旗帜，调整周期空状态；缓存统计结果与配色，优化趋势标注和列表复用。",
+                    )
                     Changelog("1.0.5", "简化同步与独立说明；透明启动标识及淡出过渡；默认跟随系统，改善主题浓度、图标与日历间距；优化账单保存和发行包体积。")
                     Changelog("1.0.4", "多选栏顶部悬浮、卡片尺寸保持不变；实现 HTTPS WebDAV 手动加密备份与恢复，新增冲突校验和恢复副本。")
                     Changelog("1.0.3", "自定义字号、独立分类迁移；时间先于备注；新增可关闭的水平转场与退出页面交互保护。")

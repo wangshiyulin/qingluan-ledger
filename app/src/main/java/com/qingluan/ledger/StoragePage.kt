@@ -75,7 +75,7 @@ fun StoragePage(vm: LedgerViewModel, back: () -> Unit) {
                 StorageCard("回收站", size(value.trashContent), "此数值已包含在数据库中", "清空", !busy) {
                     confirmation = "trash"
                 }
-                StorageCard("恢复前副本", size(value.recovery), "WebDAV恢复前保留的加密副本", "删除", !busy) {
+                StorageCard("恢复前副本", size(value.recovery), "同步恢复前保留的加密副本", "删除", !busy) {
                     confirmation = "recovery"
                 }
                 StorageCard("资料与系统数据", size(value.other), "头像、标签模板、设置、代码缓存及本机连接配置")
@@ -100,7 +100,7 @@ fun StoragePage(vm: LedgerViewModel, back: () -> Unit) {
                     when (confirmation) {
                         "logs" -> "清空后无法恢复日志，账单和设置会保留。"
                         "trash" -> "回收站中的账单和票据将永久删除，无法撤销。正常账单会保留。"
-                        "recovery" -> "删除后无法再使用此副本回到WebDAV恢复前的数据。如需保留，请先到同步页面导出副本。"
+                        "recovery" -> "删除后无法再使用此副本回到同步恢复前的数据。如需保留，请先到同步页面导出副本。"
                         else -> "合并空闲空间，保留所有账单和资料。数据较多时可能需要一些时间。"
                     }
                 )

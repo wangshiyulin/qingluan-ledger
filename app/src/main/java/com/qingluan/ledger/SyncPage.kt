@@ -33,7 +33,7 @@ private data class WebDavTransfer(
 private data class PendingRestore(val raw: String, val password: CharArray, val count: Int)
 
 @Composable
-fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
+fun WebDavSyncPage(vm: LedgerViewModel, back: () -> Unit) {
     val context = LocalContext.current
     val store = remember { WebDavStore(context.applicationContext) }
     var address by remember { mutableStateOf("") }
@@ -138,7 +138,7 @@ fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PageBackButton(onClick = { if (!busy) back() else vm.message.value = "操作进行中，请稍候" })
-                Text("同步", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text("WebDAV", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 IconButton(enabled = !busy, onClick = { help = true }) {
                     Icon(Icons.AutoMirrored.Outlined.HelpOutline, "同步说明")
                 }
@@ -176,7 +176,10 @@ fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
                         label = { Text("密码或应用密码") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Password),
+                        keyboardOptions =
+                            androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Password
+                            ),
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         TextButton(
@@ -339,7 +342,10 @@ fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
                     label = { Text("备份密码（8–128 位）") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions=androidx.compose.foundation.text.KeyboardOptions(keyboardType=androidx.compose.ui.text.input.KeyboardType.Password),
+                    keyboardOptions =
+                        androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password
+                        ),
                 )
             },
             confirmButton = {
@@ -530,7 +536,7 @@ fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
 }
 
 @Composable
-private fun SyncCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun SyncCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Surface(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),

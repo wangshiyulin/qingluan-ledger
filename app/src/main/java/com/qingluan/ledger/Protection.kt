@@ -142,7 +142,7 @@ fun SecurityGate(onReady: (Preferences) -> Unit = {}, content: @Composable () ->
         }
         MaterialTheme(
             colorScheme = appearanceColors(context, dark, style),
-            typography = appearanceTypography(style),
+            typography = appearanceTypography(style, rememberAppFont(style)),
         ) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Column(
