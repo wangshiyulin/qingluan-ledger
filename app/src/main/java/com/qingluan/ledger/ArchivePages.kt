@@ -479,54 +479,65 @@ private fun RecurringEditor(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
-                    name,
-                    { name = it.take(50) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("名称") },
-                    singleLine = true,
-                )
+                FormFieldCard {
+                    OutlinedTextField(
+                        name,
+                        { name = it.take(50) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("名称") },
+                        singleLine = true,
+                    )
+                }
                 ConfigChoice("类型", type, linkedMapOf("EXPENSE" to "支出", "INCOME" to "收入")) {
                     type = it
                     category = cats.firstOrNull { c -> c.type == it }?.id?.toString() ?: ""
                 }
-                CurrencyButton(currency) {
-                    currency = it
-                    amount = ""
+                FormFieldCard {
+                    CurrencyButton(currency) {
+                        currency = it
+                        amount = ""
+                    }
                 }
-                OutlinedTextField(
-                    amount,
-                    { amount = it.take(24) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("金额") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                )
+                FormFieldCard {
+                    OutlinedTextField(
+                        amount,
+                        { amount = it.take(24) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("金额") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    )
+                }
                 ConfigChoice(
                     "分类",
                     category,
                     linkedMapOf<String, String>().apply {
                         cats.filter { it.type == type }.forEach { put(it.id.toString(), it.name) }
                     },
+                    columns = 3,
                 ) {
                     category = it
                 }
-                DateButton(date) { date = it }
+                FormFieldCard { DateButton(date) { date = it } }
                 ConfigChoice("周期单位", frequency, frequencyNames) { frequency = it }
-                OutlinedTextField(
-                    interval,
-                    { interval = it.take(3) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("每隔几个周期（1–365）") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-                OutlinedTextField(
-                    note,
-                    { note = it.take(1000) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("备注") },
-                )
+                FormFieldCard {
+                    OutlinedTextField(
+                        interval,
+                        { interval = it.take(3) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("每隔几个周期（1–365）") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    )
+                }
+                FormFieldCard {
+                    OutlinedTextField(
+                        note,
+                        { note = it.take(1000) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("备注") },
+                    )
+                }
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }
         },
@@ -565,6 +576,7 @@ private fun RecurringEditor(
                                         original.anchorMonth
                                     else date.monthValue,
                                 enabled = original?.enabled ?: true,
+                                syncId = original?.syncId ?: java.util.UUID.randomUUID().toString(),
                             )
                         validateRecurring(rule, cats)
                         saving = true
@@ -589,4 +601,15 @@ private fun RecurringEditor(
         },
         dismissButton = { TextButton(enabled = !saving, onClick = dismiss) { Text("取消") } },
     )
+}
+
+@Composable
+private fun FormFieldCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(10.dp), content = content)
+    }
 }

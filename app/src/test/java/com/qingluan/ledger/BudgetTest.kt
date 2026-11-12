@@ -44,7 +44,7 @@ class BudgetTest {
         val budgets = BudgetRules.encode(listOf(BudgetRule("USD", 0, 123450)))
         val personal = PersonalBackup(mainCurrency = "USD", budgets = budgets)
         val raw = CompleteBackup.encode(categories, emptyList(), personal)
-        assertEquals(10, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(11, JSONObject(raw).getInt("formatVersion"))
         assertEquals(personal, CompleteBackup.decode(raw).personal)
     }
 

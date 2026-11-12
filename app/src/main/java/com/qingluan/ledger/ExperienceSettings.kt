@@ -16,6 +16,7 @@ fun ConfigChoice(
     label: String,
     value: String,
     choices: Map<String, String>,
+    columns: Int = 1,
     update: (String) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -49,19 +50,51 @@ fun ConfigChoice(
                     Modifier.heightIn(max = minOf(380.dp, dialogContentMaxHeight()))
                         .verticalScroll(rememberScrollState())
                 ) {
-                    choices.forEach { (key, name) ->
+                    choices.entries.toList().chunked(columns.coerceAtLeast(1)).forEach { group ->
                         Row(
-                            Modifier.fillMaxWidth()
-                                .selectable(key == value, role = Role.RadioButton) {
-                                    if (key != value) feedback()
-                                    update(key)
-                                    open = false
-                                }
-                                .heightIn(min = 48.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            RadioButton(key == value, null)
-                            Text(name)
+                            group.forEach { (key, name) ->
+                                val selected = key == value
+                                Surface(
+                                    modifier =
+                                        Modifier.weight(1f).padding(vertical = 3.dp).selectable(
+                                            selected,
+                                            role = Role.RadioButton,
+                                        ) {
+                                            if (!selected) feedback()
+                                            update(key)
+                                            open = false
+                                        },
+                                    shape =
+                                        androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                                    color =
+                                        if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                        else MaterialTheme.colorScheme.surfaceContainerLow,
+                                    border =
+                                        if (columns > 1)
+                                            BorderStroke(
+                                                1.dp,
+                                                if (selected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.outlineVariant,
+                                            )
+                                        else null,
+                                ) {
+                                    Row(
+                                        Modifier.heightIn(min = 48.dp)
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement =
+                                            if (columns > 1) Arrangement.Center
+                                            else Arrangement.Start,
+                                    ) {
+                                        if (columns == 1) RadioButton(selected, null)
+                                        Text(name, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                            repeat(columns - group.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -100,9 +133,11 @@ fun ConfigSwitch(label: String, value: Boolean, update: (Boolean) -> Unit) {
 @Composable
 fun ExperienceControls(vm: LedgerViewModel, page: String) {
     val e by vm.experience.collectAsState()
+    val effects by vm.effects.collectAsState()
     fun set(key: String, value: Any) = vm.experience(key, value)
     when (page) {
         "操作反馈" -> {
+            ConfigSwitch("触觉反馈", effects.haptics) { vm.effect("haptics", it) }
             ConfigChoice(
                 "动画强度",
                 e.motionStrength,
@@ -166,7 +201,6 @@ val secondaryPages =
         "预算管理",
         "分期账单",
         "标签统计",
-        "分类与标签",
         "账单管理",
         "其他设置",
     ) + aboutPages

@@ -73,7 +73,7 @@ class CompleteBackupTest {
             it[BudgetRules.key] = budgets
         }
         val raw = manager.export()
-        assertEquals(10, JSONObject(raw).getInt("formatVersion"))
+        assertEquals(11, JSONObject(raw).getInt("formatVersion"))
         val image = File(context.filesDir, "avatar.jpg").readBytes()
         repo.dao.clear()
         context.preferences.updateData { emptyPreferences() }
@@ -87,7 +87,7 @@ class CompleteBackupTest {
         assertEquals("备份测试", prefs[stringPreferencesKey("nickname")])
         assertEquals("dark", prefs[stringPreferencesKey("theme")])
         assertEquals("large", prefs[stringPreferencesKey("fontSize")])
-        assertNull(prefs[stringPreferencesKey("fontFamily")])
+        assertEquals("serif", prefs[stringPreferencesKey("fontFamily")])
         assertEquals("blue", prefs[stringPreferencesKey("palette")])
         assertEquals(true, prefs[booleanPreferencesKey("pureBlack")])
         assertEquals(false, prefs[booleanPreferencesKey("motion")])
@@ -116,7 +116,7 @@ class CompleteBackupTest {
         versionThree.getJSONObject("personal").put("fontFamily", "mono").put("glass", false)
         manager.restore(versionThree.toString())
         assertEquals("备份测试", context.preferences.data.first()[stringPreferencesKey("nickname")])
-        assertNull(context.preferences.data.first()[stringPreferencesKey("fontFamily")])
+        assertEquals("mono", context.preferences.data.first()[stringPreferencesKey("fontFamily")])
         assertNull(context.preferences.data.first()[booleanPreferencesKey("glass")])
     }
 

@@ -26,6 +26,12 @@ interface LedgerDao {
 
     @Query("SELECT * FROM transactions WHERE id=:id") suspend fun entry(id: Long): Entry?
 
+    @Query("SELECT EXISTS(SELECT 1 FROM transactions WHERE syncId=:syncId)")
+    suspend fun hasSyncEntry(syncId: String): Boolean
+
+    @Query("SELECT EXISTS(SELECT 1 FROM trash_entries WHERE entryJson LIKE :pattern)")
+    suspend fun hasSyncTrash(pattern: String): Boolean
+
     @Query("SELECT * FROM transactions WHERE id IN (:ids)")
     suspend fun entriesByIds(ids: List<Long>): List<Entry>
 
@@ -150,13 +156,24 @@ interface LedgerDao {
             RecurringBill::class,
             InstallmentPlan::class,
         ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class LedgerDb : RoomDatabase() {
     abstract fun dao(): LedgerDao
 
     companion object {
+        val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    listOf("transactions", "recurring_bills", "installment_plans").forEach { table
+                        ->
+                        db.execSQL("ALTER TABLE $table ADD COLUMN syncId TEXT NOT NULL DEFAULT ''")
+                    }
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_syncId ON transactions(syncId)")
+                }
+            }
+
         val MIGRATION_4_5 =
             object : Migration(4, 5) {
                 override fun migrate(db: SupportSQLiteDatabase) {
@@ -213,6 +230,7 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
                 LedgerDb.MIGRATION_2_3,
                 LedgerDb.MIGRATION_3_4,
                 LedgerDb.MIGRATION_4_5,
+                LedgerDb.MIGRATION_5_6,
             )
             .build()
     val dao = db.dao()
@@ -260,7 +278,13 @@ class Repository(context: Context, databaseName: String = "qingluan.db") {
                     if (e.type == type) e.amount else 0L,
                 )
             }
-            if (e.id == 0L) dao.insert(e) else dao.update(e)
+            if (e.id == 0L) {
+                require(e.syncId.isEmpty() || !dao.hasSyncEntry(e.syncId)) { "这笔账单已存在" }
+                dao.insert(e)
+            } else {
+                val previous = dao.entry(e.id) ?: error("账单已不存在")
+                dao.update(e.copy(syncId = entrySyncId(previous), createdAt = previous.createdAt))
+            }
         }
 
     suspend fun category(c: Category) =
@@ -402,6 +426,7 @@ object Backup {
                                 .put("currencyCode", it.currencyCode)
                                 .put("tags", it.tags)
                                 .put("receipt", it.receipt)
+                                .put("syncId", it.syncId)
                         )
                     }
                 },
@@ -447,6 +472,7 @@ object Backup {
                     if (version == 1L) "CNY" else e.getString("currencyCode"),
                     e.optString("tags", ""),
                     e.optString("receipt", ""),
+                    readSyncId(e),
                 )
             }
         require(

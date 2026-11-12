@@ -285,6 +285,16 @@ class LedgerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    internal suspend fun compareRestore(raw: String): RestoreComparison =
+        operationMutex.withLock { localData.compareRestore(raw) }
+
+    internal suspend fun mergeRestore(comparison: RestoreComparison, choices: Set<String>) {
+        clearUndo()
+        localData.merge(comparison, choices)
+        initialized.value = true
+        currentExportIds.value = emptySet()
+    }
+
     suspend fun restoreData(raw: String) {
         clearUndo()
         localData.restore(raw)

@@ -37,7 +37,7 @@ class CurrencyMigrationTest {
         val repo = Repository(context, name)
         try {
             assertEquals(
-                Entry(7, "EXPENSE", 123, 1, 1000, "原账单", 900, 1100, "CNY"),
+                Entry(7, "EXPENSE", 123, 1, 1000, "原账单", 900, 1100, "CNY", syncId = ""),
                 repo.dao.allEntries().single(),
             )
             assertEquals("1.23", Money.text(repo.dao.allEntries().single().amount))
@@ -45,7 +45,7 @@ class CurrencyMigrationTest {
                 "INSERT INTO transactions (type, amount, categoryId, occurredAt, note, createdAt, updatedAt) VALUES('EXPENSE', 456, 1, 2000, '', 2000, 2000)"
             )
             assertTrue(repo.dao.allEntries().all { it.currencyCode == "CNY" })
-            assertEquals(5, repo.db.openHelper.writableDatabase.version)
+            assertEquals(6, repo.db.openHelper.writableDatabase.version)
         } finally {
             repo.db.close()
             context.deleteDatabase(name)

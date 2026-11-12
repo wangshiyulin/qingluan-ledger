@@ -375,6 +375,9 @@ fun EntryPanel(
                                         currencyCode = currency,
                                         tags = tags,
                                         receipt = receipt,
+                                        syncId =
+                                            original?.syncId
+                                                ?: java.util.UUID.randomUUID().toString(),
                                     )
                                 )
                             },

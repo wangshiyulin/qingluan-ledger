@@ -30,7 +30,7 @@ private data class WebDavTransfer(
     val entry: WebDavHistoryEntry? = null,
 )
 
-private data class PendingRestore(val raw: String, val password: CharArray, val count: Int)
+private data class PendingRestore(val raw: String, val password: CharArray)
 
 @Composable
 fun WebDavSyncPage(vm: LedgerViewModel, back: () -> Unit) {
@@ -380,8 +380,7 @@ fun WebDavSyncPage(vm: LedgerViewModel, back: () -> Unit) {
                                             CompleteBackup.decode(raw)
                                         }
                                     require(data.personal != null) { "需要完整备份文件" }
-                                    pendingRestore =
-                                        PendingRestore(raw, secret.copyOf(), data.entries.size)
+                                    pendingRestore = PendingRestore(raw, secret.copyOf())
                                     status = "下载并校验完成，等待确认恢复"
                                 }
                             } finally {
@@ -458,54 +457,30 @@ fun WebDavSyncPage(vm: LedgerViewModel, back: () -> Unit) {
         )
     }
     pendingRestore?.let { pending ->
-        GlassAlertDialog(
-            onDismissRequest = {
-                if (!busy) {
-                    pendingRestore?.password?.fill('\u0000')
-                    pendingRestore = null
-                    status = "已取消恢复"
-                }
+        RestoreReviewDialog(
+            vm,
+            pending.raw,
+            dismiss = {
+                pending.password.fill('\u0000')
+                pendingRestore = null
+                status = "已取消恢复"
             },
-            title = { Text("恢复远端 ${pending.count} 笔账单？") },
-            text = { Text("将覆盖本地账单、分类、票据和个人设置。恢复前的加密副本会保留在本机，可在本页导出。应用锁和连接配置不变。") },
-            confirmButton = {
-                TextButton(
-                    enabled = !busy,
-                    onClick = {
-                        pendingRestore = null
-                        run("恢复备份") {
-                            try {
-                                val before = vm.localData.export()
-                                val copy =
-                                    withContext(Dispatchers.Default) {
-                                        BackupCipher.encrypt(before, pending.password)
-                                    }
-                                store.preserve(copy)
-                                recovery = true
-                                vm.localData.restore(pending.raw)
-                                vm.clearUndo()
-                                vm.currentExportIds.value = emptySet()
-                                status = "远端备份已恢复，本机保留恢复前副本"
-                            } finally {
-                                pending.password.fill('\u0000')
-                            }
-                        }
-                    },
-                ) {
-                    Text("覆盖恢复")
-                }
+            beforeRestore = {
+                val before = vm.localData.export()
+                val secret = pending.password.copyOf()
+                val copy =
+                    try {
+                        withContext(Dispatchers.Default) { BackupCipher.encrypt(before, secret) }
+                    } finally {
+                        secret.fill('\u0000')
+                    }
+                store.preserve(copy)
+                recovery = true
             },
-            dismissButton = {
-                TextButton(
-                    enabled = !busy,
-                    onClick = {
-                        pendingRestore?.password?.fill('\u0000')
-                        pendingRestore = null
-                        status = "已取消恢复"
-                    },
-                ) {
-                    Text("取消")
-                }
+            restored = {
+                pending.password.fill('\u0000')
+                pendingRestore = null
+                status = "远端备份已恢复，本机保留恢复前副本"
             },
         )
     }

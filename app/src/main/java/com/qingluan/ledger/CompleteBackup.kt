@@ -82,7 +82,7 @@ object CompleteBackup {
                 )
         val raw =
             JSONObject(Backup.encode(categories, entries))
-                .put("formatVersion", 10)
+                .put("formatVersion", 11)
                 .put(
                     "trash",
                     org.json.JSONArray().apply { trash.forEach { put(ArchiveJson.trash(it)) } },
@@ -112,7 +112,7 @@ object CompleteBackup {
         val version = j.get("formatVersion")
         require(
             version is Number &&
-                java.math.BigDecimal(version.toString()).longValueExact() in 1L..10L
+                java.math.BigDecimal(version.toString()).longValueExact() in 1L..11L
         ) {
             "不支持的备份版本"
         }
@@ -407,7 +407,6 @@ class LocalDataManager(private val context: Context, private val repository: Rep
                     prefs[stringPreferencesKey("fontSize")] = p.appearance.fontSize
                     prefs[intPreferencesKey("customFontPercent")] = p.appearance.customFontPercent
                     prefs[stringPreferencesKey("fontFamily")] = p.appearance.fontFamily
-                    prefs.remove(stringPreferencesKey("fontFamily"))
                     prefs[booleanPreferencesKey("motion")] = p.effects.motion
                     prefs[booleanPreferencesKey("haptics")] = p.effects.haptics
                     prefs.remove(booleanPreferencesKey("glass"))
@@ -426,10 +425,46 @@ class LocalDataManager(private val context: Context, private val repository: Rep
             }
         }
 
+    internal suspend fun compareRestore(raw: String): RestoreComparison {
+        recover()
+        val local = snapshot()
+        return withContext(Dispatchers.Default) {
+            val incoming = CompleteBackup.decode(raw)
+            RestoreComparison(local, incoming, mergeSnapshots(local, incoming))
+        }
+    }
+
+    internal suspend fun merge(comparison: RestoreComparison, choices: Set<String>) {
+        recover()
+        val old = snapshot()
+        require(sameSnapshot(old, comparison.local)) { "本机数据已变化，请关闭预览后重新比较" }
+        val next =
+            withContext(Dispatchers.Default) {
+                mergeSnapshots(old, comparison.incoming, choices).snapshot.also {
+                    // Enforce all backup limits and references before the first write.
+                    CompleteBackup.decode(
+                        CompleteBackup.encode(
+                            it.categories,
+                            it.entries,
+                            it.personal!!,
+                            it.trash,
+                            it.recurring,
+                            it.installments,
+                        )
+                    )
+                }
+            }
+        restoreSnapshot(next, old)
+    }
+
     suspend fun restore(raw: String) {
         val next = withContext(Dispatchers.Default) { CompleteBackup.decode(raw) }
         recover()
         val old = snapshot()
+        restoreSnapshot(next, old)
+    }
+
+    private suspend fun restoreSnapshot(next: CompleteSnapshot, old: CompleteSnapshot) {
         withContext(Dispatchers.IO) {
             write(
                 journal,

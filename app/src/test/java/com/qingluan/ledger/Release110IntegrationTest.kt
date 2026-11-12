@@ -58,7 +58,7 @@ class Release110IntegrationTest {
             }
             val manager = LocalDataManager(context, repo)
             val raw = manager.export()
-            assertEquals(10, JSONObject(raw).getInt("formatVersion"))
+            assertEquals(11, JSONObject(raw).getInt("formatVersion"))
             manager.restore(raw)
             assertEquals(1, repo.dao.allInstallments().single().paidTerms)
             assertEquals(35L, repo.dao.allEntries().single().amount)

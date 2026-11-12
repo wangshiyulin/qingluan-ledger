@@ -30,6 +30,7 @@ data class InstallmentPlan(
     val anchorDay: Int = LocalDate.parse(nextDate).dayOfMonth,
     val enabled: Boolean = true,
     val note: String = "",
+    @ColumnInfo(defaultValue = "''") val syncId: String = java.util.UUID.randomUUID().toString(),
 )
 
 /** Earlier terms receive one extra minor unit; all terms add up to principal plus fee. */
@@ -89,6 +90,7 @@ object Installments {
             .put("anchorDay", plan.anchorDay)
             .put("enabled", plan.enabled)
             .put("note", plan.note)
+            .put("syncId", plan.syncId)
 
     private fun number(j: JSONObject, key: String): Long {
         val value = j.get(key)
@@ -110,6 +112,7 @@ object Installments {
             anchorDay = Math.toIntExact(number(j, "anchorDay")),
             enabled = j.getBoolean("enabled"),
             note = j.getString("note"),
+            syncId = readSyncId(j),
         )
 }
 
@@ -134,7 +137,7 @@ suspend fun Repository.saveInstallment(plan: InstallmentPlan) =
                 ) {
                     "已入账分期不能修改金额、币种、期数或日期"
                 }
-            dao.updateInstallment(plan)
+            dao.updateInstallment(plan.copy(syncId = installmentSyncId(old)))
         }
     }
 
@@ -152,23 +155,27 @@ suspend fun Repository.confirmInstallment(id: Long, expectedPaid: Int) =
         Installments.validate(plan, dao.allCategories())
         val paid = plan.paidTerms + 1
         val next = if (paid == plan.terms) plan.nextDate else nextInstallmentDate(plan).toString()
-        save(
-            Entry(
-                type = "EXPENSE",
-                amount = installmentTermAmount(plan),
-                categoryId = plan.categoryId,
-                currencyCode = plan.currencyCode,
-                occurredAt =
-                    LocalDate.parse(plan.nextDate)
-                        .atTime(LocalTime.now())
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-                        .toEpochMilli(),
-                note =
-                    "${plan.name}（第${paid}/${plan.terms}期）" +
-                        if (plan.note.isBlank()) "" else " ${plan.note}",
+        val syncId =
+            stableSyncId("", "installment-entry:${installmentSyncId(plan)}:${plan.paidTerms}")
+        if (!hasScheduledEntry(syncId))
+            save(
+                Entry(
+                    type = "EXPENSE",
+                    amount = installmentTermAmount(plan),
+                    categoryId = plan.categoryId,
+                    currencyCode = plan.currencyCode,
+                    occurredAt =
+                        LocalDate.parse(plan.nextDate)
+                            .atTime(LocalTime.now())
+                            .atZone(ZoneId.systemDefault())
+                            .toInstant()
+                            .toEpochMilli(),
+                    syncId = syncId,
+                    note =
+                        "${plan.name}（第${paid}/${plan.terms}期）" +
+                            if (plan.note.isBlank()) "" else " ${plan.note}",
+                )
             )
-        )
         dao.updateInstallment(
             plan.copy(paidTerms = paid, nextDate = next, enabled = paid < plan.terms)
         )

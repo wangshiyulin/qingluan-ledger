@@ -41,6 +41,7 @@ fun CategoryMigrationDialog(vm: LedgerViewModel, categories: List<Category>, dis
                     linkedMapOf("" to "请选择").apply {
                         same.forEach { put(it.id.toString(), it.name) }
                     },
+                    columns = 3,
                 ) {
                     source = it
                     target = ""
@@ -51,6 +52,7 @@ fun CategoryMigrationDialog(vm: LedgerViewModel, categories: List<Category>, dis
                     linkedMapOf("" to "请选择").apply {
                         same.filter { it.id != sourceId }.forEach { put(it.id.toString(), it.name) }
                     },
+                    columns = 3,
                 ) {
                     target = it
                 }

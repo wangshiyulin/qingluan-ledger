@@ -9,10 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-val settingsSectionPages = listOf("分类与标签", "账单管理")
+val settingsSectionPages = listOf("账单管理")
 
 // Accept saved navigation destinations from earlier builds, then redirect to current pages.
-internal val legacySettingsRoutes = mapOf("本地数据" to "数据管理", "账单计划" to "账单管理", "统计与预算" to "账单管理")
+internal val legacySettingsRoutes =
+    mapOf("分类与标签" to "数据管理", "本地数据" to "数据管理", "账单计划" to "账单管理", "统计与预算" to "账单管理")
 
 @Composable
 fun SettingsSectionPage(page: String, back: () -> Unit, open: (String) -> Unit) {
@@ -23,10 +24,6 @@ fun SettingsSectionPage(page: String, back: () -> Unit, open: (String) -> Unit) 
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when (page) {
-                "分类与标签" -> {
-                    SettingsActionCard("分类管理", Icons.Outlined.Category, { open("分类管理") })
-                    SettingsActionCard("标签管理", Icons.Outlined.Sell, { open("标签管理") })
-                }
                 "账单管理" -> {
                     SettingsActionCard("周期账单", Icons.Outlined.EventRepeat, { open("周期账单") })
                     SettingsActionCard("分期账单", Icons.Outlined.Payments, { open("分期账单") })

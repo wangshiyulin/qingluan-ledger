@@ -9,16 +9,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 const val ANNUAL_REPORT_ROUTE = "年度报告/{year}"
 
@@ -94,9 +99,29 @@ fun AnnualReportPage(rows: List<Entry>, cats: List<Category>, initialYear: Int, 
                     annualReport(rows, year, code, zone)
                 }
         }
+    val context = LocalContext.current
+    val shareScope = rememberCoroutineScope()
+    var shareOptions by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
+    var shareError by remember { mutableStateOf<String?>(null) }
+    var showAmounts by remember { mutableStateOf(false) }
+    var showCategories by remember { mutableStateOf(true) }
+    val hideAmounts = LocalExperience.current.hideAmounts
+    val accent = MaterialTheme.colorScheme.primary.toArgb()
     val categories = remember(cats) { cats.associateBy { it.id } }
     Column(Modifier.fillMaxSize().testTag("annual-report-page")) {
-        FeatureHeader("年度报告", back)
+        FeatureHeader("年度报告", back) {
+            IconButton(
+                enabled =
+                    !sharing && report?.let { it.year == year && it.currency == code } == true,
+                onClick = {
+                    showAmounts = !hideAmounts
+                    shareOptions = true
+                },
+            ) {
+                Icon(Icons.Outlined.Share, if (sharing) "正在生成分享图片" else "分享年度报告")
+            }
+        }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -295,6 +320,61 @@ fun AnnualReportPage(rows: List<Entry>, cats: List<Category>, initialYear: Int, 
                     }
                 }
             }
+    }
+    if (shareOptions)
+        GlassAlertDialog(
+            onDismissRequest = { shareOptions = false },
+            title = { Text("分享年度报告") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ConfigSwitch("显示金额", showAmounts) { showAmounts = it }
+                    ConfigSwitch("显示分类排行", showCategories) { showCategories = it }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val snapshot = report?.takeIf { it.year == year && it.currency == code }
+                        if (snapshot != null) {
+                            shareOptions = false
+                            sharing = true
+                            val amounts = showAmounts
+                            val ranking = showCategories
+                            shareScope.launch {
+                                try {
+                                    val uri =
+                                        annualReportImage(
+                                            context,
+                                            snapshot,
+                                            categories,
+                                            amounts,
+                                            ranking,
+                                            accent,
+                                        )
+                                    shareAnnualReport(context, uri)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (_: Exception) {
+                                    shareError = "无法分享年度报告，请稍后重试"
+                                } finally {
+                                    sharing = false
+                                }
+                            }
+                        }
+                    }
+                ) {
+                    Text("生成并分享")
+                }
+            },
+            dismissButton = { TextButton(onClick = { shareOptions = false }) { Text("取消") } },
+        )
+    shareError?.let { message ->
+        GlassAlertDialog(
+            onDismissRequest = { shareError = null },
+            title = { Text("分享失败") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { shareError = null }) { Text("确定") } },
+        )
     }
     if (years)
         PeriodPicker(LocalDate.of(year, 1, 1), "year", { years = false }) {

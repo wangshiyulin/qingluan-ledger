@@ -25,7 +25,7 @@ data class Category(
                 onDelete = ForeignKey.RESTRICT,
             )
         ],
-    indices = [Index("categoryId"), Index("occurredAt")],
+    indices = [Index("categoryId"), Index("occurredAt"), Index("syncId")],
 )
 data class Entry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -39,6 +39,7 @@ data class Entry(
     @ColumnInfo(defaultValue = "'CNY'") val currencyCode: String = "CNY",
     @ColumnInfo(defaultValue = "''") val tags: String = "",
     @ColumnInfo(defaultValue = "''") val receipt: String = "",
+    @ColumnInfo(defaultValue = "''") val syncId: String = java.util.UUID.randomUUID().toString(),
 )
 
 object Money {

@@ -29,6 +29,7 @@ data class TransferRange(
                 categoryId = 0,
                 occurredAt = b.occurredAt,
                 currencyCode = b.currency,
+                syncId = "", // Temporary date-range adapter; not a saved bill.
             )
         )
 }

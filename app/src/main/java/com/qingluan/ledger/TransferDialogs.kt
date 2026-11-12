@@ -137,7 +137,7 @@ private fun RangeControls(
 ) {
     val choices = linkedMapOf("all" to "全部", "dates" to "指定日期")
     if (allowCurrent) choices["current"] = "当前明细筛选"
-    ConfigChoice("范围", scope, choices, changeScope)
+    ConfigChoice("范围", scope, choices, update = changeScope)
     if (scope == "dates")
         Row(Modifier.fillMaxWidth()) {
             DateButton(from, changeFrom)
@@ -147,13 +147,13 @@ private fun RangeControls(
         "收支",
         type,
         linkedMapOf("all" to "收入和支出", "EXPENSE" to "支出", "INCOME" to "收入"),
-        changeType,
+        update = changeType,
     )
     ConfigChoice(
         "币种",
         currency,
         linkedMapOf("all" to "全部币种").apply { codes.forEach { put(it, it) } },
-        changeCurrency,
+        update = changeCurrency,
     )
 }
 
@@ -416,6 +416,7 @@ internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () 
     var currency by remember { mutableStateOf("all") }
     var mode by remember { mutableStateOf("append") }
     var skip by remember { mutableStateOf(true) }
+    var review by remember { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var working by remember { mutableStateOf(false) }
     val valid = from <= to
@@ -439,6 +440,8 @@ internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () 
     val modes = linkedMapOf("append" to "追加账单", "replace" to "替换所选范围")
     if (data.fullJson != null && scope == "all" && type == "all" && currency == "all")
         modes["full"] = "完整恢复（覆盖本地数据）"
+    if (data.fullJson != null && scope == "all" && type == "all" && currency == "all")
+        modes["merge"] = "跨设备合并恢复"
     LaunchedEffect(modes.keys) { if (mode !in modes) mode = "append" }
     fun runImport() {
         working = true
@@ -567,7 +570,7 @@ internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () 
                 }
                 if (!valid) Text("开始日期不能晚于结束日期", color = MaterialTheme.colorScheme.error)
                 ConfigChoice("导入方式", mode, modes) { mode = it }
-                if (mode != "full")
+                if (mode !in setOf("full", "merge"))
                     ConfigChoice(
                         "重复记录",
                         if (skip) "skip" else "keep",
@@ -583,14 +586,31 @@ internal fun ImportDialog(vm: LedgerViewModel, data: ImportPreview, dismiss: () 
                     valid &&
                         !working &&
                         (data.errors.isEmpty() || acceptValidRows) &&
-                        (mode == "full" || bills.isNotEmpty()),
-                onClick = { if (mode == "append") runImport() else confirm = true },
+                        (mode in setOf("full", "merge") || bills.isNotEmpty()),
+                onClick = {
+                    when (mode) {
+                        "merge" -> review = true
+                        "append" -> runImport()
+                        else -> confirm = true
+                    }
+                },
             ) {
                 Text(if (working) "处理中" else "导入")
             }
         },
         dismissButton = { TextButton(enabled = !working, onClick = dismiss) { Text("取消") } },
     )
+    if (review && data.fullJson != null)
+        RestoreReviewDialog(
+            vm,
+            data.fullJson,
+            dismiss = { review = false },
+            restored = {
+                review = false
+                vm.message.value = "备份已合并恢复"
+                dismiss()
+            },
+        )
     if (confirm)
         GlassAlertDialog(
             onDismissRequest = { confirm = false },

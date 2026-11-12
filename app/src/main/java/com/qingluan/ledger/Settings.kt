@@ -106,11 +106,6 @@ fun Settings(
                             vm.effect("motion", it)
                         }
                     }
-                    item {
-                        PreferenceSwitch("触觉反馈", Icons.Outlined.Vibration, effects.haptics) {
-                            vm.effect("haptics", it)
-                        }
-                    }
                 }
                 if (page == "个性化") {
                     item { PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") } }
@@ -131,6 +126,8 @@ fun Settings(
                 if (page == "数据管理")
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SettingsActionCard("分类管理", Icons.Outlined.Category, { open("分类管理") })
+                            SettingsActionCard("标签管理", Icons.Outlined.Sell, { open("标签管理") })
                             TransferTools(vm)
                             SettingsActionCard("同步", Icons.Outlined.CloudSync, { open("同步") })
                             SettingsActionCard(
@@ -307,6 +304,15 @@ private fun themeLabel(value: String) =
 
 @Composable
 fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val descriptions =
+        mapOf(
+            "个性化" to "主题、字体与操作体验",
+            "账单管理" to "预算、统计与账单计划",
+            "数据管理" to "分类标签、备份与数据保护",
+            "其他设置" to "桌面快捷记账",
+            "关于" to "应用信息、更新与反馈",
+        )
     Column(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
@@ -316,7 +322,6 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
         ProfileHeader(vm, rows)
         listOf(
                 "个性化" to Icons.Outlined.Palette,
-                "分类与标签" to Icons.Outlined.Category,
                 "账单管理" to Icons.Outlined.EventNote,
                 "数据管理" to Icons.Outlined.FolderOpen,
                 "其他设置" to Icons.Outlined.MoreHoriz,
@@ -329,6 +334,12 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
                             .elasticClickable { open(label) },
                     headlineContent = { Text(label) },
+                    supportingContent = {
+                        Text(
+                            descriptions.getValue(label),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    },
                     leadingContent = {
                         Surface(
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
@@ -349,6 +360,16 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
                         ),
                 )
             }
+        TextButton(
+            onClick = {
+                if (!openAboutLink(context, AboutLinks.github)) vm.message.value = "无法打开仓库链接"
+            },
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp),
+        ) {
+            Icon(Icons.Outlined.StarOutline, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("给项目 Star")
+        }
     }
 }
 

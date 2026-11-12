@@ -40,6 +40,7 @@ data class RecurringBill(
     val anchorDay: Int = LocalDate.parse(nextDate).dayOfMonth,
     val anchorMonth: Int = LocalDate.parse(nextDate).monthValue,
     val enabled: Boolean = true,
+    @ColumnInfo(defaultValue = "''") val syncId: String = java.util.UUID.randomUUID().toString(),
 )
 
 val frequencyNames = linkedMapOf("DAY" to "天", "WEEK" to "周", "MONTH" to "月", "YEAR" to "年")
@@ -112,6 +113,7 @@ object ArchiveJson {
             .put("currencyCode", e.currencyCode)
             .put("tags", e.tags)
             .put("receipt", e.receipt)
+            .put("syncId", e.syncId)
 
     fun entry(j: JSONObject): Entry =
         Entry(
@@ -126,6 +128,7 @@ object ArchiveJson {
                 j.getString("currencyCode"),
                 j.getString("tags"),
                 j.getString("receipt"),
+                readSyncId(j),
             )
             .also {
                 require(
@@ -181,6 +184,7 @@ object ArchiveJson {
             .put("anchorDay", r.anchorDay)
             .put("anchorMonth", r.anchorMonth)
             .put("enabled", r.enabled)
+            .put("syncId", r.syncId)
 
     fun recurring(j: JSONObject) =
         RecurringBill(
@@ -197,6 +201,7 @@ object ArchiveJson {
             Math.toIntExact(long(j, "anchorDay")),
             Math.toIntExact(long(j, "anchorMonth")),
             j.getBoolean("enabled"),
+            readSyncId(j),
         )
 }
 
@@ -282,7 +287,10 @@ suspend fun Repository.saveRecurring(rule: RecurringBill) =
         if (rule.id == 0L) {
             require(dao.allRecurring().size < 1000) { "周期账单数量已达上限" }
             dao.addRecurring(rule)
-        } else dao.updateRecurring(rule)
+        } else {
+            val previous = dao.recurring(rule.id) ?: error("周期账单已不存在")
+            dao.updateRecurring(rule.copy(syncId = recurringSyncId(previous)))
+        }
     }
 
 suspend fun Repository.advanceRecurring(id: Long, expectedDate: String, record: Boolean) =
@@ -296,7 +304,8 @@ suspend fun Repository.advanceRecurring(id: Long, expectedDate: String, record: 
             "周期账单状态已变化，请刷新"
         }
         val next = nextRecurringDate(rule)
-        if (record)
+        val syncId = stableSyncId("", "recurring-entry:${recurringSyncId(rule)}:$expectedDate")
+        if (record && !hasScheduledEntry(syncId))
             save(
                 Entry(
                     type = rule.type,
@@ -310,7 +319,13 @@ suspend fun Repository.advanceRecurring(id: Long, expectedDate: String, record: 
                             .toEpochMilli(),
                     currencyCode = rule.currencyCode,
                     note = rule.note,
+                    syncId =
+                        stableSyncId("", "recurring-entry:${recurringSyncId(rule)}:$expectedDate"),
                 )
             )
         dao.updateRecurring(rule.copy(nextDate = next.toString()))
     }
+
+/** A restored older plan must not charge a period already active or in the recycle bin. */
+internal suspend fun Repository.hasScheduledEntry(syncId: String): Boolean =
+    dao.hasSyncEntry(syncId) || dao.hasSyncTrash("%\"syncId\":\"$syncId\"%")

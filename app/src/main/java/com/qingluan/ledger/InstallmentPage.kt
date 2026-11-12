@@ -268,6 +268,7 @@ private fun InstallmentEditor(
                                     else date.dayOfMonth,
                                 enabled = original?.enabled ?: true,
                                 note = note,
+                                syncId = original?.syncId ?: java.util.UUID.randomUUID().toString(),
                             )
                         Installments.validate(plan, cats)
                         saving = true

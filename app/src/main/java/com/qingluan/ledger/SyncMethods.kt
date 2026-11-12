@@ -45,7 +45,7 @@ fun SyncPage(vm: LedgerViewModel, back: () -> Unit) {
 
 private data class S3Transfer(val config: S3Config, val entry: WebDavHistoryEntry? = null)
 
-private data class S3Restore(val raw: String, val password: CharArray, val count: Int)
+private data class S3Restore(val raw: String, val password: CharArray)
 
 @Composable
 private fun S3SyncPage(vm: LedgerViewModel, back: () -> Unit) {
@@ -397,7 +397,7 @@ private fun S3SyncPage(vm: LedgerViewModel, back: () -> Unit) {
                                             CompleteBackup.decode(raw)
                                         }
                                     require(snapshot.personal != null) { "需要完整备份文件" }
-                                    pending = S3Restore(raw, secret.copyOf(), snapshot.entries.size)
+                                    pending = S3Restore(raw, secret.copyOf())
                                     status = "备份已校验，等待确认恢复"
                                 }
                             } finally {
@@ -422,48 +422,29 @@ private fun S3SyncPage(vm: LedgerViewModel, back: () -> Unit) {
         )
     }
     pending?.let { snapshot ->
-        GlassAlertDialog(
-            onDismissRequest = {
+        RestoreReviewDialog(
+            vm,
+            snapshot.raw,
+            dismiss = {
                 snapshot.password.fill('\u0000')
                 pending = null
             },
-            title = { Text("恢复 ${snapshot.count} 笔账单？") },
-            text = { Text("将覆盖本地账单、分类、票据和个人设置；先保留恢复前加密副本。应用锁和连接配置不变。") },
-            confirmButton = {
-                TextButton(
-                    enabled = !busy,
-                    onClick = {
-                        pending = null
-                        run("恢复备份") {
-                            try {
-                                val before = vm.localData.export()
-                                val copy =
-                                    withContext(Dispatchers.Default) {
-                                        BackupCipher.encrypt(before, snapshot.password)
-                                    }
-                                recoveryStore.preserve(copy)
-                                recovery = true
-                                vm.restoreData(snapshot.raw)
-                                vm.currentExportIds.value = emptySet()
-                                status = "S3 备份已恢复，本机保留恢复前副本"
-                            } finally {
-                                snapshot.password.fill('\u0000')
-                            }
-                        }
-                    },
-                ) {
-                    Text("覆盖恢复")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        snapshot.password.fill('\u0000')
-                        pending = null
+            beforeRestore = {
+                val before = vm.localData.export()
+                val secret = snapshot.password.copyOf()
+                val copy =
+                    try {
+                        withContext(Dispatchers.Default) { BackupCipher.encrypt(before, secret) }
+                    } finally {
+                        secret.fill('\u0000')
                     }
-                ) {
-                    Text("取消")
-                }
+                recoveryStore.preserve(copy)
+                recovery = true
+            },
+            restored = {
+                snapshot.password.fill('\u0000')
+                pending = null
+                status = "S3 备份已恢复，本机保留恢复前副本"
             },
         )
     }
