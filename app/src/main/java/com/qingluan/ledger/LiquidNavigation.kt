@@ -2,177 +2,200 @@ package com.qingluan.ledger
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.interaction.*
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.*
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.*
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import kotlin.math.roundToInt
 
+/** A sampled background lens; gestures move the lens before committing a destination. */
 @Composable
-fun LiquidNavigation(route: String, haze: HazeState, select: (String) -> Unit) {
-    val motion = motionAllowed(LocalEffects.current)
-    val feedback = rememberAppFeedback("navigation")
-    val shape = RoundedCornerShape(29.dp)
+fun LiquidNavigation(tab: Int, backdrop: Backdrop, select: (Int) -> Unit) {
+    val animationsEnabled = motionAllowed(LocalEffects.current)
+    val hapticsEnabled = LocalEffects.current.haptics
+    val dark = LocalDarkAppearance.current
     val colors = MaterialTheme.colorScheme
-    val surface = colors.surface
-    val dark = surface.luminance() < .5f
-    val hardwareBlur =
-        android.os.Build.VERSION.SDK_INT >= 31 &&
-            androidx.compose.ui.platform.LocalView.current.isHardwareAccelerated
-    val tabs =
-        listOf(
-            "明细" to Icons.Outlined.ReceiptLong,
-            "洞察" to Icons.Outlined.Insights,
-            "我的" to Icons.Outlined.Person,
+    val hardware = LocalView.current.isHardwareAccelerated
+    val feedback = rememberAppFeedback("navigation")
+    val latestSelect by rememberUpdatedState(select)
+    val latestTab by rememberUpdatedState(tab)
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    var dragging by remember { mutableStateOf(false) }
+    var dragIndex by remember { mutableFloatStateOf(tab.toFloat()) }
+    val progress by
+        animateFloatAsState(
+            if (pressed || dragging) 1f else 0f,
+            if (animationsEnabled) spring(.8f, 700f) else snap(),
+            label = "glass-pressure",
         )
-    val index = tabs.indexOfFirst { it.first == route }.coerceAtLeast(0)
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    val position by
+        animateFloatAsState(
+            if (dragging) dragIndex else tab.toFloat(),
+            if (!animationsEnabled || dragging) snap() else spring(.78f, 550f),
+            label = "glass-position",
+        )
+    fun choose(index: Int) {
+        if (index != latestTab) {
+            if (hapticsEnabled) feedback()
+            latestSelect(index)
+        }
+    }
+    val labels = listOf("明细", "洞察", "我的")
+    val icons = listOf(Icons.AutoMirrored.Outlined.ReceiptLong, Icons.Outlined.Insights, Icons.Outlined.Person)
+    val shape = RoundedCornerShape(30.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 28.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         BoxWithConstraints(
-            Modifier.navigationBarsPadding()
-                .padding(horizontal = 32.dp, vertical = 6.dp)
-                .widthIn(max = 460.dp)
+            Modifier.widthIn(max = 352.dp)
                 .fillMaxWidth()
-                .height(58.dp)
-                .shadow(5.dp, shape)
-                .clip(shape)
-                .hazeChild(
-                    haze,
-                    HazeStyle(
-                        backgroundColor = surface.copy(alpha = .03f),
-                        tints = listOf(HazeTint(surface.copy(alpha = if (dark) .20f else .13f))),
-                        blurRadius = 20.dp,
-                        noiseFactor = .01f,
-                        fallbackTint = HazeTint(surface.copy(alpha = .88f)),
-                    ),
-                ) {
-                    blurEnabled = hardwareBlur
-                }
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = if (dark) .07f else .14f),
-                            Color.White.copy(alpha = .01f),
-                            Color.Black.copy(alpha = if (dark) .06f else .035f),
-                        )
+                .height(60.dp)
+                .testTag("transparent-navigation")
+                .pointerInput(animationsEnabled, hapticsEnabled) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { offset ->
+                            dragIndex = (offset.x / (size.width / 3f) - .5f).coerceIn(0f, 2f)
+                            dragging = true
+                        },
+                        onHorizontalDrag = { change, _ ->
+                            change.consume()
+                            dragIndex =
+                                (change.position.x / (size.width / 3f) - .5f).coerceIn(0f, 2f)
+                        },
+                        onDragEnd = {
+                            choose(dragIndex.roundToInt())
+                            dragging = false
+                        },
+                        onDragCancel = { dragging = false },
                     )
-                )
-                .border(
-                    .8.dp,
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = if (dark) .38f else .72f),
-                            colors.outline.copy(alpha = .12f),
-                            Color.White.copy(alpha = .22f),
-                        )
-                    ),
-                    shape,
-                )
-                .padding(4.dp)
+                }
         ) {
-            val tabWidth = (maxWidth - 8.dp) / 3
-            val position by
-                animateDpAsState(
-                    (tabWidth + 4.dp) * index,
-                    if (motion) spring(dampingRatio = .86f, stiffness = 520f) else snap(),
-                    label = "玻璃选中胶囊位置",
-                )
-            val lensShape = RoundedCornerShape(25.dp)
+            val width = maxWidth / 3
             Box(
-                Modifier.offset(x = position)
-                    .width(tabWidth)
-                    .fillMaxHeight()
-                    .shadow(2.dp, lensShape)
-                    .clip(lensShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color.White.copy(alpha = if (dark) .19f else .50f),
-                                surface.copy(alpha = .10f),
-                                Color.White.copy(alpha = if (dark) .07f else .24f),
+                Modifier.fillMaxSize()
+                    .then(
+                        if (hardware)
+                            Modifier.drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { shape },
+                                effects = {
+                                    vibrancy()
+                                    blur(8.dp.toPx())
+                                    lens(25.dp.toPx(), 27.dp.toPx(), chromaticAberration = true)
+                                },
+                                onDrawSurface = {
+                                    drawRect(
+                                        if (dark) Color(0xFF171B20).copy(alpha = .35f)
+                                        else Color.White.copy(alpha = .35f)
+                                    )
+                                },
                             )
-                        )
+                        else Modifier.background(colors.surfaceContainer.copy(alpha = .92f), shape)
                     )
                     .border(
-                        1.dp,
+                        .65.dp,
                         Brush.linearGradient(
                             listOf(
-                                colors.outline.copy(alpha = .28f),
-                                Color.White.copy(alpha = if (dark) .60f else .95f),
-                                Color.White.copy(alpha = .10f),
-                                colors.outline.copy(alpha = .22f),
+                                Color.White.copy(alpha = .48f),
+                                Color.White.copy(alpha = .06f),
+                                Color.White.copy(alpha = .20f),
                             )
                         ),
-                        lensShape,
+                        shape,
                     )
             )
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                tabs.forEach { (label, image) ->
-                    val selected = route == label
+            val lensShape = RoundedCornerShape(26.dp)
+            Box(
+                Modifier.offset {
+                        IntOffset((width * position + 4.dp).roundToPx(), 4.dp.roundToPx())
+                    }
+                    .width(width - 8.dp)
+                    .height(52.dp)
+                    .graphicsLayer {
+                        scaleX = 1f + .08f * progress
+                        scaleY = 1f + .13f * progress
+                    }
+                    .then(
+                        if (hardware)
+                            Modifier.drawBackdrop(
+                                backdrop = backdrop,
+                                shape = { lensShape },
+                                effects = {
+                                    lens(
+                                        (10f + progress * 4f).dp.toPx(),
+                                        14.dp.toPx(),
+                                        chromaticAberration = true,
+                                    )
+                                },
+                                onDrawSurface = {
+                                    drawRect(Color.White.copy(alpha = if (dark) .10f else .28f))
+                                },
+                            )
+                        else Modifier.background(colors.tertiary.copy(alpha = .13f), lensShape)
+                    )
+                    .border(.5.dp, Color.White.copy(alpha = if (dark) .26f else .65f), lensShape)
+            )
+            Row(Modifier.fillMaxSize()) {
+                labels.forEachIndexed { i, label ->
+                    val active = if (dragging) dragIndex.roundToInt() == i else i == tab
+                    val color = if (active) colors.tertiary else colors.onSurfaceVariant
                     Column(
                         Modifier.weight(1f)
                             .fillMaxHeight()
-                            .clip(lensShape)
-                            .clickable {
-                                if (!selected) {
-                                    feedback()
-                                    select(label)
-                                }
+                            .clickable(
+                                interactionSource = interactions,
+                                indication = null,
+                                role = Role.Tab,
+                            ) {
+                                choose(i)
                             }
-                            .semantics {
-                                this.selected = selected
-                                role = Role.Tab
-                            },
+                            .semantics { selected = i == tab },
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                        verticalArrangement =
+                            Arrangement.spacedBy(1.dp, Alignment.CenterVertically),
                     ) {
-                        val tint = if (selected) colors.primary else colors.onSurfaceVariant
-                        Icon(image, null, Modifier.size(20.dp), tint = tint)
-                        Text(label, style = MaterialTheme.typography.labelSmall, color = tint)
+                        Icon(
+                            icons[i],
+                            null,
+                            Modifier.size(23.dp).graphicsLayer {
+                                val grow = if (active) progress * .08f else 0f
+                                scaleX = 1f + grow
+                                scaleY = scaleX
+                            },
+                            tint = color,
+                        )
+                        Text(
+                            label,
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                            color = if (active) colors.onSurface else color,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                        )
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-fun Modifier.elasticClickable(onClick: () -> Unit): Modifier {
-    val effects = LocalEffects.current
-    val motion = motionAllowed(effects)
-    val strength = LocalExperience.current.motionStrength
-    val feedback = rememberAppFeedback()
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val scale by
-        animateFloatAsState(
-            if (pressed && motion)
-                when (strength) {
-                    "subtle" -> .99f
-                    "lively" -> .94f
-                    else -> .97f
-                }
-            else 1f,
-            if (motion) spring(dampingRatio = .65f, stiffness = 1000f) else snap(),
-            label = "轻触回弹",
-        )
-    return this.graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        .clickable(
-            interactionSource = interaction,
-            indication = ripple(),
-            onClick = {
-                feedback()
-                onClick()
-            },
-        )
 }

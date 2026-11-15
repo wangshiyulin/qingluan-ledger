@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,9 +39,24 @@ fun EntryPanel(
     save: (Entry) -> Unit,
 ) {
     val feedback = rememberAppFeedback("input")
-    val fontScale =
-        androidx.compose.ui.platform.LocalDensity.current.fontScale * LocalAppearance.current.scale
-    val categoryColumns = if (fontScale > 1.3f) 3 else 4
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val maximumHeight =
+        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .94f
+    val categoryColumns = 4
+    val categorySpacing = 2.dp
+    val labelHeight = with(density) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }
+    val categoryHeight = 56.dp + 2.dp + labelHeight * 2
+    val buttonHeight =
+        maxOf(
+            48.dp,
+            with(density) { MaterialTheme.typography.labelLarge.lineHeight.toDp() } + 16.dp,
+        )
+    val navigationInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val categoryViewport =
+        minOf(
+            categoryHeight * 3 + categorySpacing * 2 + 16.dp,
+            (maximumHeight - buttonHeight * 2 - navigationInset - 8.dp).coerceAtLeast(96.dp),
+        )
     var currency by rememberSaveable { mutableStateOf(original?.currencyCode ?: initialCurrency) }
     var type by rememberSaveable {
         mutableStateOf(original?.type ?: initialType.takeIf { it == "INCOME" } ?: "EXPENSE")
@@ -111,10 +127,8 @@ fun EntryPanel(
     }
     Column(
         Modifier.fillMaxWidth()
-            .heightIn(
-                max =
-                    androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp * .94f
-            )
+            .heightIn(max = maximumHeight)
+            .testTag("entry-panel")
             .padding(horizontal = 16.dp)
             .navigationBarsPadding(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -151,37 +165,47 @@ fun EntryPanel(
             TextButton(onClick = onCancel) { Text("取消") }
         }
         if (picking) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(categoryColumns),
-                modifier = Modifier.weight(1f, fill = false),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                items(cats.filter { it.type == type }, key = { it.id }) { c ->
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .semantics(mergeDescendants = true) {
-                                this.selected = category == c.id
-                                role = Role.Button
-                            }
-                            .clickable {
-                                feedback()
-                                category = c.id
-                                picking = false
-                            }
-                            .padding(vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color =
-                                if (category == c.id) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
+            key(type) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(categoryColumns),
+                    modifier = Modifier.height(categoryViewport).testTag("entry-category-grid"),
+                    state = rememberLazyGridState(),
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(categorySpacing),
+                ) {
+                    items(cats.filter { it.type == type }, key = { it.id }) { c ->
+                        Column(
+                            Modifier.fillMaxWidth()
+                                .height(categoryHeight)
+                                .testTag("entry-category-${c.id}")
+                                .semantics(mergeDescendants = true) {
+                                    this.selected = category == c.id
+                                    role = Role.Button
+                                }
+                                .clickable {
+                                    feedback()
+                                    category = c.id
+                                    picking = false
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally,
                         ) {
-                            Icon(icon(c.iconKey), null, Modifier.padding(16.dp).size(24.dp))
+                            Surface(
+                                shape = CircleShape,
+                                color =
+                                    if (category == c.id) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Icon(icon(c.iconKey), null, Modifier.padding(16.dp).size(24.dp))
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                c.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                minLines = 2,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
                         }
-                        Spacer(Modifier.height(6.dp))
-                        Text(c.name, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                     }
                 }
             }
@@ -306,7 +330,8 @@ fun EntryPanel(
                                                 ),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            if (value == "⌫") Icon(Icons.Outlined.Backspace, null)
+                                            if (value == "⌫")
+                                                Icon(Icons.AutoMirrored.Outlined.Backspace, null)
                                             else
                                                 Text(
                                                     value,

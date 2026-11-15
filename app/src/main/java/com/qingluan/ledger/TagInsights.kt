@@ -111,7 +111,7 @@ fun TagInsightsPage(rows: List<Entry>, cats: List<Category>, back: () -> Unit) {
                             FilterChip(
                                 currency == code,
                                 { currency = code },
-                                label = { Text(code) },
+                                label = { Text(currencyLabel(code)) },
                             )
                         }
                     }
@@ -127,7 +127,7 @@ fun TagInsightsPage(rows: List<Entry>, cats: List<Category>, back: () -> Unit) {
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            "$currency ${displayMoney(summary, currency)}",
+                            "${currencyLabel(currency)} ${displayMoney(summary, currency)}",
                             style = MaterialTheme.typography.headlineSmall,
                         )
                         Text("汇总中每笔账单只计算一次。", style = MaterialTheme.typography.bodySmall)
@@ -157,7 +157,7 @@ fun TagInsightsPage(rows: List<Entry>, cats: List<Category>, back: () -> Unit) {
                             Text("${tag.count}笔", style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
-                            "$currency ${displayMoney(tag.amount, currency)}",
+                            "${currencyLabel(currency)} ${displayMoney(tag.amount, currency)}",
                             Modifier.padding(start = 12.dp),
                         )
                     }

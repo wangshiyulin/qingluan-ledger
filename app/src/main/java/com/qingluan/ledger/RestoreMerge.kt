@@ -134,7 +134,7 @@ internal fun mergeSnapshots(
     fun describe(state: BillState): String =
         with(state) {
             val name = trash?.categoryName ?: categoryNames[entry.categoryId].orEmpty()
-            "${if (trash == null) "账单" else "回收站"} · ${entry.date()} · $name · ${entry.currencyCode} ${Money.text(entry.amount, entry.currencyCode)}" +
+            "${if (trash == null) "账单" else "回收站"} · ${entry.date()} · $name · ${currencyLabel(entry.currencyCode)} ${Money.text(entry.amount, entry.currencyCode)}" +
                 if (entry.note.isBlank()) "" else "\n${entry.note.take(60)}"
         }
     val leftBills = states(local, false)
@@ -193,7 +193,7 @@ internal fun mergeSnapshots(
             { it.syncId },
             same = { a, b -> a.copy(id = 0) == b.copy(id = 0) },
             describe = {
-                "${it.name} · ${it.currencyCode} ${Money.text(it.amount, it.currencyCode)}\n下期 ${it.nextDate} · ${if (it.enabled) "启用" else "暂停"}"
+                "${it.name} · ${currencyLabel(it.currencyCode)} ${Money.text(it.amount, it.currencyCode)}\n下期 ${it.nextDate} · ${if (it.enabled) "启用" else "暂停"}"
             },
         )
     val recurring =
@@ -213,7 +213,7 @@ internal fun mergeSnapshots(
             { it.syncId },
             same = { a, b -> a.copy(id = 0) == b.copy(id = 0) },
             describe = {
-                "${it.name} · ${it.currencyCode} ${Money.text(it.principal, it.currencyCode)}\n已入账 ${it.paidTerms}/${it.terms} · 下期 ${it.nextDate}"
+                "${it.name} · ${currencyLabel(it.currencyCode)} ${Money.text(it.principal, it.currencyCode)}\n已入账 ${it.paidTerms}/${it.terms} · 下期 ${it.nextDate}"
             },
         )
     val installments =

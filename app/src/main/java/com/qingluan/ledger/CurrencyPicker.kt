@@ -23,7 +23,7 @@ fun CurrencyButton(code: String, change: (String) -> Unit) {
         },
         contentPadding = PaddingValues(4.dp),
     ) {
-        Text(code, style = MaterialTheme.typography.labelLarge)
+        Text(currencyLabel(code), style = MaterialTheme.typography.labelLarge)
         Icon(Icons.Outlined.ArrowDropDown, null, Modifier.size(16.dp))
     }
     if (open)

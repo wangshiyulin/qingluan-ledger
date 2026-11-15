@@ -146,7 +146,7 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                                 Surface(
                                     onClick = { link(url, "${label}地址待配置") },
                                     modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(20.dp),
+                                    shape = RoundedCornerShape(24.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                                 ) {
                                     Column(
@@ -172,22 +172,36 @@ fun AboutPage(vm: LedgerViewModel, page: String, back: () -> Unit, open: (String
                             }
                     }
                     Spacer(Modifier.height(6.dp))
-                    AboutRow("检测更新", Icons.Outlined.SystemUpdate, null) {
-                        updateOpen = true
-                        updater.check()
+                    SettingsGroup {
+                        AboutRow("检测更新", Icons.Outlined.SystemUpdate, null) {
+                            updateOpen = true
+                            updater.check()
+                        }
+                        AboutRow(
+                            "问题反馈",
+                            Icons.Outlined.Feedback,
+                            "反馈地址待配置".takeIf { AboutLinks.feedback.isBlank() },
+                        ) {
+                            link(AboutLinks.feedback, "反馈地址待配置")
+                        }
+                        AboutRow("更新日志", Icons.Outlined.History) { open("更新日志") }
+                        AboutRow("运行日志", Icons.Outlined.BugReport) { open("运行日志") }
+                        AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                     }
-                    AboutRow(
-                        "问题反馈",
-                        Icons.Outlined.Feedback,
-                        "反馈地址待配置".takeIf { AboutLinks.feedback.isBlank() },
-                    ) {
-                        link(AboutLinks.feedback, "反馈地址待配置")
-                    }
-                    AboutRow("更新日志", Icons.Outlined.History) { open("更新日志") }
-                    AboutRow("运行日志", Icons.Outlined.BugReport) { open("运行日志") }
-                    AboutRow("开源许可", Icons.Outlined.Description) { open("开源许可") }
                 }
                 "更新日志" -> {
+                    Changelog(
+                        "1.1.5",
+                        "进一步缩短分类行距，币种图标仅跟随代码而不跟随¥；记账按钮去除外圈并放大；分期表单统一卡片布局；币种显示国旗；增强日历选中对比；紧凑年报大额支出；验证WebDAV/S3同步流程并清理代码。",
+                    )
+                    Changelog(
+                        "1.1.4",
+                        "液态记账按钮缩至64dp，增强洞察周期选中对比，缩小卡片间距；分类抽屉固定三行、四列并支持滚动；README顶部居中。",
+                    )
+                    Changelog(
+                        "1.1.3",
+                        "完整复用青鸾课程表原版Backdrop玻璃底栏及折射、色散、反光和按压拖动效果；统一分组设置卡片，系统动态与六套配色；最低Android15。版本及内部编号仍为1.1.3/113。",
+                    )
                     Changelog(
                         "1.1.2",
                         "分类选择改为三列，周期表单统一卡片；分类与标签移入数据管理，触觉反馈移入操作反馈，我的入口新增说明与 Star；年度报告支持图片分享；完整备份新增跨设备比较和冲突合并恢复。",
@@ -287,7 +301,7 @@ private fun AboutRow(
 ) {
     Surface(
         onClick = click,
-        shape = RoundedCornerShape(18.dp),
+        shape = settingsItemShape(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         ListItem(
@@ -305,10 +319,7 @@ private fun AboutRow(
 
 @Composable
 private fun Changelog(version: String, changes: String) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
+    Surface(shape = settingsItemShape(), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(
             Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

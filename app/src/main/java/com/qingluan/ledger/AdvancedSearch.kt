@@ -273,7 +273,10 @@ fun AdvancedSearchDialog(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { currencies = true }) {
-                            Text(if (state.currency == "all") "所有币种" else state.currency)
+                            Text(
+                                if (state.currency == "all") "所有币种"
+                                else currencyLabel(state.currency)
+                            )
                         }
                         if (state.currency != "all")
                             TextButton(onClick = { state = state.copy(currency = "all") }) {

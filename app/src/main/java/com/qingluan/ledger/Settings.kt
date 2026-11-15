@@ -7,11 +7,11 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.EventNote
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -74,62 +74,57 @@ fun Settings(
                 Modifier.weight(1f).fillMaxWidth(),
                 contentPadding =
                     PaddingValues(start = 22.dp, end = 22.dp, top = 8.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 if (page == "个性化") {
+                    item { SettingsHeading("外观") }
                     item {
-                        PreferenceCard("外观模式", Icons.Outlined.Palette, themeLabel(theme)) {
-                            appearance = true
+                        SettingsGroup {
+                            PreferenceCard("外观模式", Icons.Outlined.Palette, themeLabel(theme)) {
+                                appearance = true
+                            }
+                            PreferenceCard("字体", Icons.Outlined.TextFields, fontSizeLabel(style)) {
+                                font = true
+                            }
+                            PreferenceCard(
+                                "配色",
+                                Icons.Outlined.ColorLens,
+                                paletteNames.getValue(normalizePalette(style.palette)),
+                            ) {
+                                palette = true
+                            }
+                            PreferenceCard(
+                                "主币种",
+                                Icons.Outlined.CurrencyExchange,
+                                currencyLabel(mainCurrency),
+                            ) {
+                                currencyPicker = true
+                            }
                         }
                     }
+                    item { SettingsHeading("操作与统计") }
                     item {
-                        PreferenceCard("字体", Icons.Outlined.TextFields, fontSizeLabel(style)) {
-                            font = true
+                        SettingsGroup {
+                            PreferenceSwitch("灵动效果", Icons.Outlined.AutoAwesome, effects.motion) {
+                                vm.effect("motion", it)
+                            }
+                            PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") }
+                            PreferenceCard("统计偏好", Icons.Outlined.QueryStats, "") { open("统计偏好") }
                         }
                     }
-                    item {
-                        PreferenceCard(
-                            "主题",
-                            Icons.Outlined.ColorLens,
-                            paletteNames.getValue(style.palette),
-                        ) {
-                            palette = true
-                        }
-                    }
-                    item {
-                        PreferenceCard("主币种", Icons.Outlined.CurrencyExchange, mainCurrency) {
-                            currencyPicker = true
-                        }
-                    }
-                    item {
-                        PreferenceSwitch("灵动效果", Icons.Outlined.AutoAwesome, effects.motion) {
-                            vm.effect("motion", it)
-                        }
-                    }
-                }
-                if (page == "个性化") {
-                    item { PreferenceCard("操作反馈", Icons.Outlined.TouchApp, "") { open("操作反馈") } }
-                    item { PreferenceCard("统计偏好", Icons.Outlined.QueryStats, "") { open("统计偏好") } }
                 }
                 if (page in listOf("操作反馈", "列表显示", "统计偏好"))
+                    item { SettingsGroup { ExperienceControls(vm, page) } }
+                if (page == "数据保护") item { SettingsGroup { ProtectionControls(vm) } }
+                if (page == "数据管理") {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ExperienceControls(vm, page)
-                        }
-                    }
-                if (page == "数据保护")
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ProtectionControls(vm)
-                        }
-                    }
-                if (page == "数据管理")
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SettingsActionCard("分类管理", Icons.Outlined.Category, { open("分类管理") })
-                            SettingsActionCard("标签管理", Icons.Outlined.Sell, { open("标签管理") })
+                        SettingsGroup {
                             TransferTools(vm)
                             SettingsActionCard("同步", Icons.Outlined.CloudSync, { open("同步") })
+                        }
+                    }
+                    item {
+                        SettingsGroup {
                             SettingsActionCard(
                                 "数据保护",
                                 Icons.Outlined.VerifiedUser,
@@ -137,6 +132,10 @@ fun Settings(
                             )
                             SettingsActionCard("存储空间管理", Icons.Outlined.Storage, { open("存储空间管理") })
                             SettingsActionCard("回收站", Icons.Outlined.DeleteOutline, { open("回收站") })
+                        }
+                    }
+                    item {
+                        SettingsGroup {
                             SettingsActionCard(
                                 "清空账单",
                                 Icons.Outlined.DeleteOutline,
@@ -145,6 +144,7 @@ fun Settings(
                             )
                         }
                     }
+                }
             }
         }
     if (currencyPicker)
@@ -307,9 +307,11 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
     val context = androidx.compose.ui.platform.LocalContext.current
     val descriptions =
         mapOf(
-            "个性化" to "主题、字体与操作体验",
+            "个性化" to "配色、字体与操作体验",
+            "分类管理" to "分类、图标与迁移",
+            "标签管理" to "分类标签与归属设置",
             "账单管理" to "预算、统计与账单计划",
-            "数据管理" to "分类标签、备份与数据保护",
+            "数据管理" to "备份、同步与数据保护",
             "其他设置" to "桌面快捷记账",
             "关于" to "应用信息、更新与反馈",
         )
@@ -320,46 +322,55 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
             .padding(bottom = LocalFloatingBottomInset.current + 72.dp)
     ) {
         ProfileHeader(vm, rows)
-        listOf(
-                "个性化" to Icons.Outlined.Palette,
-                "账单管理" to Icons.Outlined.EventNote,
-                "数据管理" to Icons.Outlined.FolderOpen,
-                "其他设置" to Icons.Outlined.MoreHoriz,
-                "关于" to Icons.Outlined.Info,
+        val groups =
+            listOf(
+                listOf(
+                    "个性化" to Icons.Outlined.Palette,
+                    "分类管理" to Icons.Outlined.Category,
+                    "标签管理" to Icons.Outlined.Sell,
+                ),
+                listOf(
+                    "账单管理" to Icons.AutoMirrored.Outlined.EventNote,
+                    "数据管理" to Icons.Outlined.FolderOpen,
+                ),
+                listOf("其他设置" to Icons.Outlined.MoreHoriz, "关于" to Icons.Outlined.Info),
             )
-            .forEach { (label, image) ->
-                ListItem(
-                    modifier =
-                        Modifier.padding(vertical = 4.dp)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                            .elasticClickable { open(label) },
-                    headlineContent = { Text(label) },
-                    supportingContent = {
-                        Text(
-                            descriptions.getValue(label),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    },
-                    leadingContent = {
-                        Surface(
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                        ) {
+        groups.forEach { group ->
+            SettingsGroup(Modifier.padding(bottom = 14.dp)) {
+                group.forEach { (label, image) ->
+                    ListItem(
+                        modifier = Modifier.fillMaxWidth().elasticClickable { open(label) },
+                        headlineContent = { Text(label) },
+                        supportingContent = {
+                            Text(
+                                descriptions.getValue(label),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                        leadingContent = {
                             Icon(
                                 image,
                                 null,
-                                Modifier.padding(9.dp).size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                Modifier.size(22.dp),
+                                tint = MaterialTheme.colorScheme.primary,
                             )
-                        }
-                    },
-                    trailingContent = { Icon(Icons.Outlined.ChevronRight, null) },
-                    colors =
-                        ListItemDefaults.colors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        ),
-                )
+                        },
+                        trailingContent = {
+                            Icon(
+                                Icons.Outlined.ChevronRight,
+                                null,
+                                Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        colors =
+                            ListItemDefaults.colors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            ),
+                    )
+                }
             }
+        }
         TextButton(
             onClick = {
                 if (!openAboutLink(context, AboutLinks.github)) vm.message.value = "无法打开仓库链接"
@@ -377,18 +388,30 @@ fun SettingsHome(vm: LedgerViewModel, rows: List<Entry>, open: (String) -> Unit)
 private fun PreferenceCard(label: String, image: ImageVector, value: String, click: () -> Unit) {
     Surface(
         Modifier.fillMaxWidth().elasticClickable(click),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        shape = settingsItemShape(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         ListItem(
             headlineContent = { Text(label) },
-            leadingContent = { Icon(image, null) },
+            leadingContent = { Icon(image, null, tint = MaterialTheme.colorScheme.primary) },
             trailingContent = {
-                Text(
-                    value,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (value.isNotBlank())
+                        Text(
+                            value,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    Icon(
+                        Icons.Outlined.ChevronRight,
+                        null,
+                        Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             },
             colors =
                 ListItemDefaults.colors(
@@ -407,7 +430,7 @@ private fun PreferenceSwitch(
 ) {
     Surface(
         Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        shape = settingsItemShape(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
@@ -420,7 +443,7 @@ private fun PreferenceSwitch(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(image, null)
+            Icon(image, null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
             Text(label, Modifier.weight(1f))
             Switch(checked, onCheckedChange = null)
@@ -437,7 +460,7 @@ fun SettingsActionCard(
 ) {
     Surface(
         Modifier.fillMaxWidth().elasticClickable(click),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+        shape = settingsItemShape(),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         ListItem(

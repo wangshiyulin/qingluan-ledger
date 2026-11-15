@@ -201,11 +201,19 @@ fun ProtectionControls(vm: LedgerViewModel) {
     ConfigSwitch("隐藏后台预览", prefs[booleanPreferencesKey("hidePreview")] ?: false) { value ->
         vm.action { context.preferences.edit { it[booleanPreferencesKey("hidePreview")] = value } }
     }
-    Text("隐藏后台预览时也会禁止系统截图。", style = MaterialTheme.typography.labelSmall)
+    Text(
+        "隐藏后台预览时也会禁止系统截图。",
+        Modifier.fillMaxWidth().settingsRow().padding(horizontal = 16.dp, vertical = 10.dp),
+        style = MaterialTheme.typography.labelSmall,
+    )
     ConfigChoice("备份提醒", e.backupDays, linkedMapOf("off" to "关闭", "7" to "每7天", "30" to "每30天")) {
         vm.experience("backupDays", it)
     }
-    Text("打开应用时提醒；完整 JSON 或加密备份成功后重新计时。", style = MaterialTheme.typography.labelSmall)
+    Text(
+        "打开应用时提醒；完整 JSON 或加密备份成功后重新计时。",
+        Modifier.fillMaxWidth().settingsRow().padding(horizontal = 16.dp, vertical = 10.dp),
+        style = MaterialTheme.typography.labelSmall,
+    )
 }
 
 @Composable

@@ -11,7 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 class ImportPreviewTest {
     private val header = "日期,时间,类型,分类,币种,金额,备注\r\n"
 

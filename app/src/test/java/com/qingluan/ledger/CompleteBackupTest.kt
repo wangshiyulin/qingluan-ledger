@@ -88,7 +88,7 @@ class CompleteBackupTest {
         assertEquals("dark", prefs[stringPreferencesKey("theme")])
         assertEquals("large", prefs[stringPreferencesKey("fontSize")])
         assertEquals("serif", prefs[stringPreferencesKey("fontFamily")])
-        assertEquals("blue", prefs[stringPreferencesKey("palette")])
+        assertEquals("ocean", prefs[stringPreferencesKey("palette")])
         assertEquals(true, prefs[booleanPreferencesKey("pureBlack")])
         assertEquals(false, prefs[booleanPreferencesKey("motion")])
         assertArrayEquals(image, File(context.filesDir, "avatar.jpg").readBytes())

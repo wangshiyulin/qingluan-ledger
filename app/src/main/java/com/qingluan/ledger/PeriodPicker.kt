@@ -57,6 +57,7 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                                 else years = false
                             },
                             label = { Text(y.toString(), maxLines = 1) },
+                            colors = periodChipColors(),
                         )
                     }
                 }
@@ -76,6 +77,8 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
                                 choose(LocalDate.of(year, m, 1))
                             },
                             label = { Text("${m}月", maxLines = 1) },
+                            modifier = Modifier.testTag("period-month-$m"),
+                            colors = periodChipColors(),
                         )
                     }
                 }
@@ -83,3 +86,12 @@ fun PeriodPicker(date: LocalDate, mode: String, dismiss: () -> Unit, choose: (Lo
         confirmButton = { TextButton(onClick = dismiss) { Text("取消") } },
     )
 }
+
+@Composable
+internal fun periodChipColors() =
+    FilterChipDefaults.filterChipColors(
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        labelColor = MaterialTheme.colorScheme.onSurface,
+        selectedContainerColor = MaterialTheme.colorScheme.primary,
+        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    )

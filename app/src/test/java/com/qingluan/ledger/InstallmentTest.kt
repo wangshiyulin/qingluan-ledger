@@ -10,7 +10,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [28])
+@Config(sdk = [35])
 class InstallmentTest {
     private lateinit var repo: Repository
     private lateinit var databaseName: String

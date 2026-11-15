@@ -64,7 +64,7 @@ internal suspend fun annualReportImage(
             }
             text("青鸾记账 · 年度报告", 72f, 98f, 32f, ink)
             text("${data.year} 年", 72f, 188f, 66f, bold = true)
-            text(data.currency, 820f, 180f, 30f, ink, 190f)
+            text(currencyLabel(data.currency), 820f, 180f, 30f, ink, 190f)
             card(240f, 550f)
             text("年度结余", 80f, 300f, 30f)
             text(money(data.total.balance), 80f, 382f, 58f, ink, bold = true)

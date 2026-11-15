@@ -33,7 +33,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class UpdateBackNavigationTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()

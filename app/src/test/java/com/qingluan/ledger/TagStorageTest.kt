@@ -12,7 +12,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 class TagStorageTest {
     private val categories = listOf(Category(1, "餐饮", "EXPENSE"), Category(2, "工资", "INCOME"))
 

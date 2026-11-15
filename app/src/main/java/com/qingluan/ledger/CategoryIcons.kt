@@ -1,6 +1,10 @@
 package com.qingluan.ledger
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.DirectionsBike
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -59,7 +63,7 @@ object CategoryIcons {
             "health" -> Icons.Outlined.FavoriteBorder
             "fun" -> Icons.Outlined.MusicNote
             "travel" -> Icons.Outlined.Flight
-            "book" -> Icons.Outlined.MenuBook
+            "book" -> Icons.AutoMirrored.Outlined.MenuBook
             "gift" -> Icons.Outlined.CardGiftcard
             "work" -> Icons.Outlined.WorkOutline
             "money" -> Icons.Outlined.Payments
@@ -75,14 +79,14 @@ object CategoryIcons {
             "beauty" -> Icons.Outlined.Face
             "tools" -> Icons.Outlined.Build
             "insurance" -> Icons.Outlined.Shield
-            "tax" -> Icons.Outlined.ReceiptLong
-            "stock" -> Icons.Outlined.TrendingUp
+            "tax" -> Icons.AutoMirrored.Outlined.ReceiptLong
+            "stock" -> Icons.AutoMirrored.Outlined.TrendingUp
             "refund" -> Icons.Outlined.Replay
             "salary" -> Icons.Outlined.Badge
             "bank" -> Icons.Outlined.AccountBalance
             "hotel" -> Icons.Outlined.Hotel
             "train" -> Icons.Outlined.Train
-            "bike" -> Icons.Outlined.DirectionsBike
+            "bike" -> Icons.AutoMirrored.Outlined.DirectionsBike
             "bus" -> Icons.Outlined.DirectionsBus
             "camera" -> Icons.Outlined.PhotoCamera
             "computer" -> Icons.Outlined.Computer

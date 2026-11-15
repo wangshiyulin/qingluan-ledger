@@ -152,7 +152,7 @@ private fun RangeControls(
     ConfigChoice(
         "币种",
         currency,
-        linkedMapOf("all" to "全部币种").apply { codes.forEach { put(it, it) } },
+        linkedMapOf("all" to "全部币种").apply { codes.forEach { put(it, currencyLabel(it)) } },
         update = changeCurrency,
     )
 }
@@ -242,7 +242,7 @@ fun ExportDialog(vm: LedgerViewModel, fixedIds: Set<Long>? = null, dismiss: () -
                         true,
                     )
                 Text(
-                    "${selected.size} 笔 · ${selected.map{it.currencyCode}.distinct().joinToString(" / ")}"
+                    "${selected.size} 笔 · ${selected.map{it.currencyCode}.distinct().joinToString(" / ") { currencyLabel(it) }}"
                 )
                 if (!valid) Text("开始日期不能晚于结束日期", color = MaterialTheme.colorScheme.error)
                 if (kind !in setOf("csv", "xlsx") && complete)

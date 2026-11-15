@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.*
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class FeatureUiTest {
     @get:Rule(order = 0)
@@ -214,7 +214,7 @@ class FeatureUiTest {
     }
 
     @Test
-    @Config(sdk = [34], qualifiers = "w960dp-h600dp-land")
+    @Config(sdk = [35], qualifiers = "w960dp-h600dp-land")
     fun landscapeLargeTextEntryAndDateRemainUsable() {
         val vm = ready()
         vm.applyFont("custom", 160, "system", "") {}

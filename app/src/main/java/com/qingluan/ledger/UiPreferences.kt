@@ -32,6 +32,6 @@ fun rememberAppFeedback(scene: String = "actions"): () -> Unit {
     }
 }
 
-fun currencyPrefix(code: String) = if (code == "CNY") "¥" else code
+fun currencyPrefix(code: String) = if (code == "CNY") "¥" else currencyLabel(code)
 
 val LocalFloatingBottomInset = staticCompositionLocalOf { 0.dp }

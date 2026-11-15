@@ -24,3 +24,6 @@ fun currencyFlag(code: String): String? {
     val region = currencyRegions[code] ?: code.take(2).takeIf { it in isoRegions } ?: return null
     return buildString { region.forEach { appendCodePoint(0x1F1E6 + (it - 'A')) } }
 }
+
+/** Display only: persistence, exports and network signatures keep the unadorned ISO code. */
+fun currencyLabel(code: String): String = "${currencyFlag(code) ?: "🌐"} $code"

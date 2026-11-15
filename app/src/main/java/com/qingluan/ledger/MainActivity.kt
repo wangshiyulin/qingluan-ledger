@@ -1,7 +1,6 @@
 package com.qingluan.ledger
 
 import android.app.*
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,7 +30,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
-import dev.chrisbanes.haze.*
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import java.time.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -45,27 +45,21 @@ class MainActivity : ComponentActivity() {
     private var pendingSplashRemove: (() -> Unit)? = null
     private var appliedShortcutState: Boolean? = null
 
-    override fun onCreate(b: Bundle?) {
-        super.onCreate(b)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         pendingQuickEntry.value = null
         enableEdgeToEdge()
-        val coldStart = b == null
-        if (Build.VERSION.SDK_INT >= 31) {
-            splashScreen.setOnExitAnimationListener { splash ->
-                pendingSplashRemove = {
-                    runCatching { splash.remove() }
-                    Unit
-                }
-                val exit: () -> Unit = {
-                    launchAnimation =
-                        animateStartupExit(splash, launchMotion) {
-                            runCatching { splash.remove() }
-                            launchAnimation = null
-                            pendingSplashRemove = null
-                        }
-                }
-                if (launchReady) exit() else pendingSplashExit = exit
+        splashScreen.setOnExitAnimationListener { splash ->
+            pendingSplashRemove = { runCatching { splash.remove() } }
+            val exit: () -> Unit = {
+                launchAnimation =
+                    animateStartupExit(splash, launchMotion) {
+                        runCatching { splash.remove() }
+                        launchAnimation = null
+                        pendingSplashRemove = null
+                    }
             }
+            if (launchReady) exit() else pendingSplashExit = exit
         }
         setContent {
             val screen: @Composable () -> Unit = {
@@ -102,9 +96,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
-            if (coldStart && Build.VERSION.SDK_INT < 31)
-                LegacyStartupReveal(launchReady, launchMotion, screen)
-            else screen()
+            screen()
         }
     }
 
@@ -235,7 +227,7 @@ fun LedgerApp(
             }
         }
 
-        val haze = remember { HazeState() }
+        val navigationBackdrop = rememberLayerBackdrop()
         val snack = remember { SnackbarHostState() }
         LaunchedEffect(message, undoBatch?.token) {
             message?.let { text ->
@@ -250,7 +242,7 @@ fun LedgerApp(
                     )
                 if (undoable) {
                     if (result == SnackbarResult.ActionPerformed) vm.undoDelete(batch)
-                    else vm.clearUndo(batch?.token)
+                    else vm.clearUndo(batch.token)
                 }
                 if (vm.message.value == text) vm.message.value = null
             }
@@ -267,6 +259,7 @@ fun LedgerApp(
             androidx.compose.ui.platform.LocalHapticFeedback provides
                 if (effects.haptics) nativeHaptic else silentHaptic,
             LocalEffects provides effects,
+            LocalDarkAppearance provides dark,
             LocalExperience provides visibleExperience,
             LocalMainCurrency provides mainCurrency,
             LocalTagCatalog provides managedTags,
@@ -289,36 +282,43 @@ fun LedgerApp(
                     containerColor = MaterialTheme.colorScheme.background,
                     floatingActionButton = {
                         if (!secondaryRoute && !selecting)
-                            FloatingActionButton(
-                                onClick = {
-                                    feedback()
-                                    editId = 0L
-                                    entryInitialType = "EXPENSE"
-                                    initialDate = LocalDate.now()
-                                    entryState.removeState("entry")
-                                    draftReceipt = null
-                                    sheetOpen = true
-                                },
-                                modifier = Modifier.size(72.dp),
-                                shape = CircleShape,
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ) {
-                                Icon(Icons.Outlined.Add, "记账", Modifier.size(32.dp))
+                            LiquidEntryButton(navigationBackdrop) {
+                                feedback()
+                                editId = 0L
+                                entryInitialType = "EXPENSE"
+                                initialDate = LocalDate.now()
+                                entryState.removeState("entry")
+                                draftReceipt = null
+                                sheetOpen = true
                             }
                     },
                     bottomBar = {
-                        if (!secondaryRoute)
-                            LiquidNavigation(route, haze) { label ->
-                                if (label != nav.currentDestination?.route) {
-                                    navigationFocus.clearFocus()
-                                    navigationKeyboard?.hide()
-                                    nav.navigate(label) {
-                                        popUpTo(nav.graph.startDestinationId) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
+                        if (!secondaryRoute) {
+                            val tabs = listOf("明细", "洞察", "我的")
+                            val density = androidx.compose.ui.platform.LocalDensity.current
+                            CompositionLocalProvider(
+                                androidx.compose.ui.platform.LocalDensity provides
+                                    Density(density.density, density.fontScale * appearance.scale)
+                            ) {
+                                LiquidNavigation(
+                                    tabs.indexOf(route).coerceAtLeast(0),
+                                    navigationBackdrop,
+                                ) { index ->
+                                    val label = tabs[index]
+                                    if (label != nav.currentDestination?.route) {
+                                        navigationFocus.clearFocus()
+                                        navigationKeyboard?.hide()
+                                        nav.navigate(label) {
+                                            popUpTo(nav.graph.startDestinationId) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                 }
                             }
+                        }
                     },
                 ) { padding ->
                     val floating = route in listOf("明细", "洞察", "我的")
@@ -328,7 +328,11 @@ fun LedgerApp(
                     ) {
                         Box(
                             Modifier.fillMaxSize()
-                                .haze(haze)
+                                .then(
+                                    if (!secondaryRoute && currentView.isHardwareAccelerated)
+                                        Modifier.layerBackdrop(navigationBackdrop)
+                                    else Modifier
+                                )
                                 .background(MaterialTheme.colorScheme.background)
                         ) {
                             NavHost(
@@ -505,7 +509,7 @@ fun Summary(rows: List<Entry>) {
         groups.forEach { (code, entries) ->
             CompositionLocalProvider(LocalCurrency provides code) {
                 if (code != "CNY" || groups.size > 1)
-                    Text(code, style = MaterialTheme.typography.labelSmall)
+                    Text(currencyLabel(code), style = MaterialTheme.typography.labelSmall)
                 CurrencySummary(entries)
             }
         }
@@ -579,7 +583,7 @@ fun EntryRow(
         modifier =
             Modifier.fillMaxWidth()
                 .testTag("bill-row-${e.id}")
-                .padding(vertical = 3.dp)
+                .padding(vertical = 2.dp)
                 .then(
                     if (onClick != null)
                         Modifier.combinedClickable(
@@ -605,7 +609,7 @@ fun EntryRow(
             androidx.compose.ui.platform.LocalDensity.current.fontScale *
                 LocalAppearance.current.scale >= 1.4f
         val amountText =
-            (if (e.currencyCode != "CNY") e.currencyCode + " " else "") +
+            (if (e.currencyCode != "CNY") currencyLabel(e.currencyCode) + " " else "") +
                 (if (e.type == "INCOME") "+" else "−") +
                 visibleMoney(e.amount, e.currencyCode, display.hideAmounts)
         Column(
@@ -691,7 +695,7 @@ private fun MonthCurrencyHeader(
     Surface(
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        modifier = Modifier.padding(top = 3.dp, bottom = 3.dp),
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
@@ -717,7 +721,7 @@ private fun MonthCurrencyHeader(
             else Spacer(Modifier.width(64.dp))
             if (showCode)
                 Text(
-                    currency,
+                    currencyLabel(currency),
                     Modifier.padding(end = 6.dp),
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -916,7 +920,7 @@ fun Details(
                 item {
                     Text(
                         day.toString(),
-                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
@@ -16,6 +17,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,7 +127,7 @@ fun Insights(
                 top = 8.dp,
                 bottom = LocalFloatingBottomInset.current + 88.dp,
             ),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -179,9 +182,10 @@ fun Insights(
             }
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
-                Row(Modifier.fillMaxWidth().padding(4.dp)) {
+                Row(Modifier.fillMaxWidth().padding(4.dp).selectableGroup()) {
                     listOf("month" to "月", "year" to "年", "all" to "全部").forEach { (v, n) ->
                         Surface(
                             onClick = {
@@ -189,17 +193,25 @@ fun Insights(
                                 unit = v
                                 savePref("statUnit", v)
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier =
+                                Modifier.weight(1f).testTag("insight-period-$v").semantics {
+                                    selected = unit == v
+                                    role = androidx.compose.ui.semantics.Role.Tab
+                                },
                             shape = RoundedCornerShape(22.dp),
                             color =
-                                if (unit == v) MaterialTheme.colorScheme.primaryContainer
+                                if (unit == v) MaterialTheme.colorScheme.primary
                                 else Color.Transparent,
                         ) {
                             Box(Modifier.height(40.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     n,
+                                    fontWeight =
+                                        if (unit == v)
+                                            androidx.compose.ui.text.font.FontWeight.SemiBold
+                                        else androidx.compose.ui.text.font.FontWeight.Normal,
                                     color =
-                                        if (unit == v) MaterialTheme.colorScheme.onPrimaryContainer
+                                        if (unit == v) MaterialTheme.colorScheme.onPrimary
                                         else MaterialTheme.colorScheme.onSurface,
                                 )
                             }
@@ -377,7 +389,7 @@ fun Insights(
                 currencyItem(currency) {
                     InsightSection(
                         "日历",
-                        "${date.year}年${date.monthValue}月 · $currency",
+                        "${date.year}年${date.monthValue}月 · ${currencyLabel(currency)}",
                         "insight-calendar-$currency",
                     ) {
                         CalendarMonth(date, currencyRows, type) { day = it }

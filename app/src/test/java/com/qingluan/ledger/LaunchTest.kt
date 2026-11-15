@@ -565,13 +565,13 @@ class LaunchTest {
             compose.onAllNodesWithText("字体").fetchSemanticsNodes()
             vm.appearance.value.fontSize == "custom" && vm.appearance.value.customFontPercent == 115
         }
-        compose.onNodeWithText("主题").performClick()
-        compose.onNode(hasText("海蓝") and isSelectable()).performClick()
+        compose.onNodeWithText("配色").performClick()
+        compose.onNode(hasText("海盐蓝") and isSelectable()).performClick()
         compose.onNodeWithTag("pure-black").performScrollTo().performClick()
         compose.onNodeWithText("完成").performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("主题").fetchSemanticsNodes()
-            vm.appearance.value.palette == "blue" && vm.appearance.value.pureBlack
+            compose.onAllNodesWithText("配色").fetchSemanticsNodes()
+            vm.appearance.value.palette == "ocean" && vm.appearance.value.pureBlack
         }
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("本地数据").performScrollTo().performClick()
@@ -664,17 +664,17 @@ class LaunchTest {
         compose.onNodeWithText("支出分类").assertExists()
         compose.onNodeWithText("我的").performClick()
         compose.onNodeWithText("个性化").performScrollTo().performClick()
-        compose.onNodeWithText("主题").performClick()
-        compose.onNode(hasText("默认") and isSelectable()).assertExists()
+        compose.onNodeWithText("配色").performClick()
+        compose.onNode(hasText("系统动态") and isSelectable()).assertExists()
         compose.onNodeWithText("系统配色").assertDoesNotExist()
         val left = compose.onNodeWithTag("palette-jade").fetchSemanticsNode().boundsInRoot
         val right = compose.onNodeWithTag("palette-system").fetchSemanticsNode().boundsInRoot
         assert(kotlin.math.abs(left.top - right.top) < 1f)
         assert(left.left > right.left)
-        compose.onNode(hasText("薄荷") and isSelectable()).performScrollTo().performClick()
+        compose.onNode(hasText("青玉") and isSelectable()).performScrollTo().performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("主题").fetchSemanticsNodes()
-            vm.appearance.value.palette == "mint"
+            compose.onAllNodesWithText("配色").fetchSemanticsNodes()
+            vm.appearance.value.palette == "jade"
         }
         compose.onNodeWithText("完成").performClick()
     }
@@ -1092,32 +1092,6 @@ class LaunchTest {
             nine - two,
             1f,
         )
-    }
-
-    @Test
-    @Config(sdk = [28])
-    fun legacySplashRevealsContentAndDoesNotBlockAfterExit() {
-        val ready = androidx.compose.runtime.mutableStateOf(false)
-        val motion = androidx.compose.runtime.mutableStateOf(true)
-        var clicks = 0
-        compose.runOnUiThread {
-            compose.activity.setContent {
-                LegacyStartupReveal(ready.value, motion.value) {
-                    androidx.compose.material3.Button(onClick = { clicks++ }) {
-                        androidx.compose.material3.Text("启动后操作")
-                    }
-                }
-            }
-        }
-        compose.onNodeWithText("启动后操作").performClick()
-        org.junit.Assert.assertEquals(0, clicks)
-        compose.runOnUiThread { ready.value = true }
-        compose.waitForIdle()
-        compose.onNodeWithText("启动后操作").performClick()
-        org.junit.Assert.assertEquals(1, clicks)
-        compose.runOnUiThread { motion.value = false }
-        compose.onNodeWithText("启动后操作").performClick()
-        org.junit.Assert.assertEquals(2, clicks)
     }
 
     private fun waitForOff(label: String) {

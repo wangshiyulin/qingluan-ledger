@@ -102,7 +102,7 @@ fun BudgetPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                "${rule.currency} · ${if (rule.categoryId == 0L) "总预算" else index[rule.categoryId]?.name ?: "已删除分类"}",
+                                "${currencyLabel(rule.currency)} · ${if (rule.categoryId == 0L) "总预算" else index[rule.categoryId]?.name ?: "已删除分类"}",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Text(
@@ -183,7 +183,7 @@ private fun BudgetEditor(
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Text(
-                            currency,
+                            currencyLabel(currency),
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,

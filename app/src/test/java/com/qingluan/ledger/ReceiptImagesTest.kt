@@ -11,7 +11,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ReceiptImagesTest {
     private fun image(width: Int = 2, height: Int = 2): String {

@@ -3,7 +3,6 @@ package com.qingluan.ledger
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
@@ -137,7 +136,7 @@ fun AnnualReportPage(rows: List<Entry>, cats: List<Category>, initialYear: Int, 
                 Icon(Icons.Outlined.ChevronRight, "下一年")
             }
             TextButton(onClick = { picker = true }) {
-                Text(code)
+                Text(currencyLabel(code))
                 Icon(Icons.Outlined.ArrowDropDown, null)
             }
         }
@@ -160,7 +159,7 @@ fun AnnualReportPage(rows: List<Entry>, cats: List<Category>, initialYear: Int, 
                                 verticalArrangement = Arrangement.spacedBy(14.dp),
                             ) {
                                 Text(
-                                    "${year}年 · $code",
+                                    "${year}年 · ${currencyLabel(code)}",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 )
@@ -313,8 +312,12 @@ fun AnnualReportPage(rows: List<Entry>, cats: List<Category>, initialYear: Int, 
                             }
                         if (data.largest.isNotEmpty()) {
                             item { Text("大额支出 · 前五", style = MaterialTheme.typography.titleMedium) }
-                            items(data.largest, key = { it.id }) { entry ->
-                                EntryRow(entry, cats, null)
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    data.largest.forEach { entry ->
+                                        key(entry.id) { EntryRow(entry, cats, null) }
+                                    }
+                                }
                             }
                         }
                     }

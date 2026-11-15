@@ -1,11 +1,11 @@
 package com.qingluan.ledger
 
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,7 +20,9 @@ fun AppDateDialog(date: LocalDate, dismiss: () -> Unit, select: (LocalDate) -> U
     val feedback = rememberAppFeedback("input")
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val compact = configuration.screenHeightDp < 480 || density.fontScale * LocalAppearance.current.scale > 1.3f
+    val compact =
+        configuration.screenHeightDp < 480 ||
+            density.fontScale * LocalAppearance.current.scale > 1.3f
     val state =
         rememberDatePickerState(
             initialDisplayMode = if (compact) DisplayMode.Input else DisplayMode.Picker,
@@ -37,18 +39,20 @@ fun AppDateDialog(date: LocalDate, dismiss: () -> Unit, select: (LocalDate) -> U
         val scale = width.value / 360f
         CompositionLocalProvider(
             androidx.compose.ui.platform.LocalDensity provides
-                androidx.compose.ui.unit.Density(
-                    density.density * scale,
-                    density.fontScale,
-                )
+                androidx.compose.ui.unit.Density(density.density * scale, density.fontScale)
         ) {
             ApplyDialogGlass()
             Surface(
-                modifier = Modifier.width(360.dp).heightIn(max = maxHeight / scale).testTag("app-date-dialog"),
+                modifier =
+                    Modifier.width(360.dp)
+                        .heightIn(max = maxHeight / scale)
+                        .testTag("app-date-dialog"),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
-                androidx.compose.foundation.layout.Column(Modifier.verticalScroll(rememberScrollState())) {
+                androidx.compose.foundation.layout.Column(
+                    Modifier.verticalScroll(rememberScrollState())
+                ) {
                     DatePicker(
                         state,
                         Modifier.testTag("app-date-picker"),
@@ -57,7 +61,15 @@ fun AppDateDialog(date: LocalDate, dismiss: () -> Unit, select: (LocalDate) -> U
                         showModeToggle = compact,
                         colors =
                             DatePickerDefaults.colors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                dayContentColor = MaterialTheme.colorScheme.onSurface,
+                                selectedDayContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedDayContentColor = MaterialTheme.colorScheme.onPrimary,
+                                todayContentColor = MaterialTheme.colorScheme.primary,
+                                yearContentColor = MaterialTheme.colorScheme.onSurface,
+                                currentYearContentColor = MaterialTheme.colorScheme.primary,
+                                selectedYearContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedYearContentColor = MaterialTheme.colorScheme.onPrimary,
                             ),
                     )
                     androidx.compose.foundation.layout.Row(
@@ -98,8 +110,11 @@ fun AppTimeDialog(time: LocalTime, dismiss: () -> Unit, select: (LocalTime) -> U
         title = { Text("时间") },
         text = {
             androidx.compose.foundation.layout.Box(
-                Modifier.heightIn(max = dialogContentMaxHeight()).verticalScroll(rememberScrollState())
-            ) { TimeInput(state, Modifier.testTag("app-time-picker")) }
+                Modifier.heightIn(max = dialogContentMaxHeight())
+                    .verticalScroll(rememberScrollState())
+            ) {
+                TimeInput(state, Modifier.testTag("app-time-picker"))
+            }
         },
         confirmButton = {
             TextButton(

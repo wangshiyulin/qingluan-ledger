@@ -25,3 +25,13 @@ Copyright The Android Open Source Project and respective contributors.
 - https://android.googlesource.com/platform/tools/apksig/
 
 The bundled Apache-2.0 license text applies. Signature trust is checked against the currently installed application's signing certificate, not a certificate retrieved from the update server.
+
+
+## Backdrop and Shapes
+
+Backdrop 2.0.1 and its Shapes 1.2.1 dependency provide the bottom navigation's background sampling, refraction, dispersion and highlights. Copyright 2025 Kyant; distributed under the Apache License, Version 2.0.
+
+- https://github.com/Kyant0/AndroidLiquidGlass
+- https://repo.maven.apache.org/maven2/io/github/kyant0/shapes/1.2.1/shapes-1.2.1.pom
+
+The Apache-2.0 license text is bundled in `app/src/main/assets/licenses/Apache-2.0.txt`. The navigation implementation is reused from the owner's Qingluan Schedule repository at https://github.com/wangshiyulin/qingluan-schedule at the owner's request.

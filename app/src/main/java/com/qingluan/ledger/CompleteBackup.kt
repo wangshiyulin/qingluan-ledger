@@ -67,7 +67,7 @@ object CompleteBackup {
                 .put("budgets", org.json.JSONArray(personal.budgets))
                 .put("managedTags", org.json.JSONArray(personal.managedTags))
                 .put("theme", personal.theme)
-                .put("palette", a.palette)
+                .put("palette", normalizePalette(a.palette))
                 .put("pureBlack", a.pureBlack)
                 .put("fontSize", a.fontSize)
                 .put("customFontPercent", a.customFontPercent)
@@ -141,7 +141,7 @@ object CompleteBackup {
         require(
             nickname.length <= 24 &&
                 theme in listOf("system", "light", "dark") &&
-                palette in paletteNames &&
+                (palette in paletteNames || palette in legacyPalettes) &&
                 (fontSize in fontSizes || fontSize in legacyFontPercents)
         ) {
             "备份设置无效"
@@ -226,7 +226,7 @@ object CompleteBackup {
                 nickname,
                 theme,
                 AppAppearance(
-                    palette,
+                    normalizePalette(palette),
                     p.getBoolean("pureBlack"),
                     normalizedFont.first,
                     normalizedFont.second,

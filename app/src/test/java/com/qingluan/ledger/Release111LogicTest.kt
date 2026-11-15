@@ -3,7 +3,6 @@ package com.qingluan.ledger
 import android.net.Uri
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.datastore.preferences.core.*
 import java.time.LocalDate
@@ -18,7 +17,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [35])
 class Release111LogicTest {
     private fun at(year: Int, month: Int, day: Int) =
         LocalDate.of(year, month, day).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
@@ -93,25 +92,12 @@ class Release111LogicTest {
     }
 
     @Test
-    fun darkThemesLiftCardsWhileKeepingContrastAndBlackBackground() {
-        for (key in paletteNames.keys) {
-            val primary = lerp(paletteColor(key), Color.White, .5f)
-            val base =
-                darkColorScheme(
-                    primary = primary,
-                    secondary = primary,
-                    background = Color.Black,
-                    surface = Color.Black,
-                )
-            val next = richerDarkColors(base)
-            assertTrue(
-                key,
-                next.surfaceContainerLow.luminance() > base.surfaceContainerLow.luminance(),
-            )
-            assertEquals(Color.Black, next.background)
-            val fg = next.onSecondaryContainer.luminance()
-            val bg = next.secondaryContainer.luminance()
-            assertTrue(key, (maxOf(fg, bg) + .05f) / (minOf(fg, bg) + .05f) >= 4.5f)
-        }
+    fun dynamicDarkBackdropKeepsPlatformAccentsAndReadableCards() {
+        val base = darkColorScheme()
+        val next = dynamicBackdrop(base, true)
+        assertEquals(Color.Black, next.background)
+        assertEquals(Color.White, next.onSurface)
+        assertEquals(base.primary, next.primary)
+        assertTrue(next.surfaceContainerLow.luminance() > next.surface.luminance())
     }
 }

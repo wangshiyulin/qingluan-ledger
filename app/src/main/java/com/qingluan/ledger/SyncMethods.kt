@@ -386,8 +386,7 @@ private fun S3SyncPage(vm: LedgerViewModel, back: () -> Unit) {
                                     S3Client(request.config).upload(encrypted)
                                     status = "加密备份已上传"
                                 } else {
-                                    val encrypted =
-                                        S3Client(request.config).download(request.entry!!)
+                                    val encrypted = S3Client(request.config).download(request.entry)
                                     val raw =
                                         withContext(Dispatchers.Default) {
                                             BackupCipher.decrypt(encrypted, secret)

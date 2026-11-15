@@ -172,9 +172,11 @@ internal object S3Signing {
     }
 }
 
-class S3Client(private val config: S3Config) {
+class S3Client internal constructor(private val config: S3Config, private val http: OkHttpClient) {
+    constructor(config: S3Config) : this(config, defaultHttp)
+
     companion object {
-        private val http =
+        private val defaultHttp =
             OkHttpClient.Builder()
                 .followRedirects(false)
                 .followSslRedirects(false)
@@ -331,7 +333,7 @@ internal fun parseHistory(raw: ByteArray, prefix: String): List<WebDavHistoryEnt
         } else if (event == XmlPullParser.END_TAG) {
             if (field != null && parser.depth == fieldDepth) {
                 if (field == "IsTruncated") truncated = value.toString().trim() == "true"
-                else fields?.put(field!!, value.toString())
+                else fields?.put(field, value.toString())
                 field = null
             }
             if (parser.name == "Contents" && parser.depth == contentDepth) {

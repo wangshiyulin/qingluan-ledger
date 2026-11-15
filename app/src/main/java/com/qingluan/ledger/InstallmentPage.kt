@@ -55,7 +55,7 @@ fun InstallmentPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit)
                             )
                             if (!complete)
                                 Text(
-                                    "${plan.nextDate} · ${plan.currencyCode} ${visibleMoney(installmentTermAmount(plan), plan.currencyCode, LocalExperience.current.hideAmounts)}"
+                                    "${plan.nextDate} · ${currencyLabel(plan.currencyCode)} ${visibleMoney(installmentTermAmount(plan), plan.currencyCode, LocalExperience.current.hideAmounts)}"
                                 )
                             Row(
                                 Modifier.fillMaxWidth(),
@@ -174,48 +174,58 @@ private fun InstallmentEditor(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
-                    name,
-                    { name = it.take(50) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("名称") },
-                    singleLine = true,
-                )
+                FormFieldCard {
+                    OutlinedTextField(
+                        name,
+                        { name = it.take(50) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("名称") },
+                        singleLine = true,
+                    )
+                }
                 if (locked) Text("已入账后，币种、金额、期数和日期不可修改。")
-                if (locked) Text("币种：$currency")
-                else
-                    CurrencyButton(currency) {
-                        currency = it
-                        principal = ""
-                        fee = "0"
-                    }
-                OutlinedTextField(
-                    principal,
-                    { principal = it.take(24) },
-                    Modifier.fillMaxWidth(),
-                    enabled = !locked,
-                    label = { Text("本金") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    fee,
-                    { fee = it.take(24) },
-                    Modifier.fillMaxWidth(),
-                    enabled = !locked,
-                    label = { Text("总手续费（可为0）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    terms,
-                    { terms = it.take(3) },
-                    Modifier.fillMaxWidth(),
-                    enabled = !locked,
-                    label = { Text("每月一期，共几期（1–120）") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                )
+                FormFieldCard {
+                    if (locked) Text("币种：${currencyLabel(currency)}")
+                    else
+                        CurrencyButton(currency) {
+                            currency = it
+                            principal = ""
+                            fee = "0"
+                        }
+                }
+                FormFieldCard {
+                    OutlinedTextField(
+                        principal,
+                        { principal = it.take(24) },
+                        Modifier.fillMaxWidth(),
+                        enabled = !locked,
+                        label = { Text("本金") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                    )
+                }
+                FormFieldCard {
+                    OutlinedTextField(
+                        fee,
+                        { fee = it.take(24) },
+                        Modifier.fillMaxWidth(),
+                        enabled = !locked,
+                        label = { Text("总手续费（可为0）") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                    )
+                }
+                FormFieldCard {
+                    OutlinedTextField(
+                        terms,
+                        { terms = it.take(3) },
+                        Modifier.fillMaxWidth(),
+                        enabled = !locked,
+                        label = { Text("每月一期，共几期（1–120）") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                    )
+                }
                 ConfigChoice(
                     "支出分类",
                     category,
@@ -224,20 +234,25 @@ private fun InstallmentEditor(
                             .filter { it.type == "EXPENSE" }
                             .forEach { put(it.id.toString(), it.name) }
                     },
+                    columns = 3,
                 ) {
                     category = it
                 }
-                if (locked) Text("下期日期：${original?.nextDate}")
-                else {
-                    Text("首期日期（之后每月按此日还款，月末自动适配）", style = MaterialTheme.typography.bodySmall)
-                    DateButton(date) { date = it }
+                FormFieldCard {
+                    if (locked) Text("下期日期：${original?.nextDate}")
+                    else {
+                        Text("首期日期（之后每月按此日还款，月末自动适配）", style = MaterialTheme.typography.bodySmall)
+                        DateButton(date) { date = it }
+                    }
                 }
-                OutlinedTextField(
-                    note,
-                    { note = it.take(900) },
-                    Modifier.fillMaxWidth(),
-                    label = { Text("备注（最多900字）") },
-                )
+                FormFieldCard {
+                    OutlinedTextField(
+                        note,
+                        { note = it.take(900) },
+                        Modifier.fillMaxWidth(),
+                        label = { Text("备注（最多900字）") },
+                    )
+                }
                 Text("本金与总手续费按最小货币单位均分，余数分配到前几期。", style = MaterialTheme.typography.bodySmall)
                 if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
             }

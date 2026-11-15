@@ -13,7 +13,7 @@ val settingsSectionPages = listOf("账单管理")
 
 // Accept saved navigation destinations from earlier builds, then redirect to current pages.
 internal val legacySettingsRoutes =
-    mapOf("分类与标签" to "数据管理", "本地数据" to "数据管理", "账单计划" to "账单管理", "统计与预算" to "账单管理")
+    mapOf("分类与标签" to "我的", "本地数据" to "数据管理", "账单计划" to "账单管理", "统计与预算" to "账单管理")
 
 @Composable
 fun SettingsSectionPage(page: String, back: () -> Unit, open: (String) -> Unit) {
@@ -23,18 +23,12 @@ fun SettingsSectionPage(page: String, back: () -> Unit, open: (String) -> Unit) 
             Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            when (page) {
-                "账单管理" -> {
-                    SettingsActionCard("周期账单", Icons.Outlined.EventRepeat, { open("周期账单") })
-                    SettingsActionCard("分期账单", Icons.Outlined.Payments, { open("分期账单") })
-                    SettingsActionCard(
-                        "预算管理",
-                        Icons.Outlined.AccountBalanceWallet,
-                        { open("预算管理") },
-                    )
-                    SettingsActionCard("标签统计", Icons.Outlined.QueryStats, { open("标签统计") })
-                    SettingsActionCard("列表显示", Icons.Outlined.ViewAgenda, { open("列表显示") })
-                }
+            SettingsGroup {
+                SettingsActionCard("周期账单", Icons.Outlined.EventRepeat, { open("周期账单") })
+                SettingsActionCard("分期账单", Icons.Outlined.Payments, { open("分期账单") })
+                SettingsActionCard("预算管理", Icons.Outlined.AccountBalanceWallet, { open("预算管理") })
+                SettingsActionCard("标签统计", Icons.Outlined.QueryStats, { open("标签统计") })
+                SettingsActionCard("列表显示", Icons.Outlined.ViewAgenda, { open("列表显示") })
             }
         }
     }

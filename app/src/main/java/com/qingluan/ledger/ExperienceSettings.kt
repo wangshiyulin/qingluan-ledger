@@ -21,10 +21,7 @@ fun ConfigChoice(
 ) {
     var open by remember { mutableStateOf(false) }
     val feedback = rememberAppFeedback()
-    Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
+    Surface(shape = settingsItemShape(), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         ListItem(
             modifier =
                 Modifier.clickable {
@@ -106,10 +103,7 @@ fun ConfigChoice(
 @Composable
 fun ConfigSwitch(label: String, value: Boolean, update: (Boolean) -> Unit) {
     val feedback = rememberAppFeedback()
-    Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
+    Surface(shape = settingsItemShape(), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         ListItem(
             modifier =
                 Modifier.toggleable(

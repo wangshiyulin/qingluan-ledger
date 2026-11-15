@@ -273,7 +273,7 @@ fun RecurringPage(vm: LedgerViewModel, cats: List<Category>, back: () -> Unit) {
                         ) {
                             Text(rule.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "${rule.currencyCode} ${visibleMoney(rule.amount,rule.currencyCode,LocalExperience.current.hideAmounts)} · ${if(rule.type=="EXPENSE")"支出" else "收入"}"
+                                "${currencyLabel(rule.currencyCode)} ${visibleMoney(rule.amount,rule.currencyCode,LocalExperience.current.hideAmounts)} · ${if(rule.type=="EXPENSE")"支出" else "收入"}"
                             )
                             Text(
                                 "每${rule.interval}${frequencyNames[rule.frequency]} · ${rule.nextDate} · ${if(!rule.enabled)"已暂停" else if(due)"待确认" else "未到期"}",
@@ -604,7 +604,7 @@ private fun RecurringEditor(
 }
 
 @Composable
-private fun FormFieldCard(content: @Composable ColumnScope.() -> Unit) {
+internal fun FormFieldCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
